@@ -8,6 +8,8 @@ the project.
 
 ### Issue 1.1: Initialize Rust crate and workspace conventions
 
+Status: complete
+
 Create the initial Rust project layout and establish conventions for modules,
 formatting, linting, and tests.
 
@@ -168,6 +170,13 @@ Definition of done:
 
 ### Issue 8.1: Add unit tests for core numerical pieces
 
+Status: in progress
+
+Current note:
+
+- parser and validation tests are implemented
+- future numerical modules will need their own dedicated tests as they are added
+
 Cover parser behavior, basis evaluation, transform logic, regularization
 construction, and derived metrics.
 
@@ -187,6 +196,8 @@ Definition of done:
 - expected behavior is documented
 
 ### Issue 8.3: Document developer workflow
+
+Status: complete
 
 Explain how to build, test, lint, and review the project so the repository stays
 friendly to learning and contribution.

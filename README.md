@@ -50,11 +50,19 @@ Current repository structure:
 ├── Cargo.toml
 ├── LICENSE
 ├── README.md
+├── data/
+│   ├── README.md
+│   ├── examples/
+│   ├── reference/
+│   └── synthetic/
 ├── docs/
+│   ├── DEVELOPMENT.md
 │   ├── README.md
 │   ├── PRD_0p2.md
 │   └── ISSUES_0p2.md
 └── src/
+    ├── data/
+    ├── lib.rs
     └── main.rs
 ```
 
@@ -62,6 +70,10 @@ Expected layout as the implementation grows:
 
 ```text
 .
+├── data/
+│   ├── examples/
+│   ├── reference/
+│   └── synthetic/
 ├── docs/
 │   ├── PRD_0p2.md
 │   ├── ISSUES_0p2.md
@@ -93,6 +105,15 @@ This project uses versioned planning documents instead of one large permanent
 specification. That keeps each iteration focused and makes it easier to refine
 the design as the implementation matures.
 
+## About `data/`
+
+The [`data/`](/Users/air/Documents/illfit/data/README.md) folder is for example,
+synthetic, and reference datasets used during development and validation.
+
+- `examples/` is for small parser-focused files
+- `synthetic/` is for generated test cases with known behavior
+- `reference/` is for trusted real datasets and higher-level validation
+
 ## Near-term direction
 
 The current `0.2` direction is centered on:
@@ -107,3 +128,17 @@ The current `0.2` direction is centered on:
 The Rust crate has been initialized with Cargo, but the scientific core is not
 implemented yet. The next steps are to grow the crate structure in line with the
 planning documents and build the numerical pipeline incrementally.
+
+## Developer workflow
+
+The main development commands are:
+
+```bash
+cargo fmt
+cargo clippy --all-targets --all-features
+cargo test
+cargo run
+```
+
+The more detailed workflow and project conventions live in
+[`docs/DEVELOPMENT.md`](/Users/air/Documents/illfit/docs/DEVELOPMENT.md).
