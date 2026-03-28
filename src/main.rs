@@ -1,3 +1,8 @@
+mod cli;
+
 fn main() {
-    println!("illfit: SAXS iFT toolkit");
+    if let Err(error) = cli::run(std::env::args()) {
+        eprintln!("{error}");
+        std::process::exit(1);
+    }
 }

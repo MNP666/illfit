@@ -217,6 +217,20 @@ Definition of done:
 - output layout is consistent with fit mode
 - help text is clear
 
+### Issue 7.3: Implement `scan-truncation` CLI command
+
+Status: added after work started
+
+Provide a command-line entry point for local low-`q` truncation scanning.
+
+Definition of done:
+
+- baseline dropped-point count is exposed on the CLI
+- nearby truncation scan parameters are exposed on the CLI
+- output layout is consistent with other scan modes
+- degraded or failed nearby scan entries are preserved in exported output
+- help text is clear
+
 ## Milestone 8: Testing and developer quality
 
 ### Issue 8.1: Add unit tests for core numerical pieces
