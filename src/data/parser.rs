@@ -57,6 +57,13 @@ impl SaxsCurve {
     pub fn points(&self) -> &[SaxsPoint] {
         &self.points
     }
+
+    /// Return a validated view of the curve with the first `count` points
+    /// removed.
+    pub fn truncate_front(&self, count: usize) -> Result<Self, ParseCurveError> {
+        let truncated = self.points.iter().copied().skip(count).collect::<Vec<_>>();
+        Self::new(truncated)
+    }
 }
 
 #[derive(Debug)]
@@ -239,5 +246,22 @@ still not data
         let missing = example_path("definitely_missing.dat");
         let error = parse_ascii_curve_file(missing).unwrap_err();
         assert!(matches!(error, ParseCurveError::Io(_)));
+    }
+
+    #[test]
+    fn truncates_curve_from_the_front() {
+        let curve = parse_ascii_curve(
+            "\
+1.0 2.0 0.1
+2.0 3.0 0.1
+3.0 4.0 0.1
+",
+        )
+        .unwrap();
+
+        let truncated = curve.truncate_front(1).unwrap();
+
+        assert_eq!(truncated.len(), 2);
+        assert_eq!(truncated.points()[0].q, 2.0);
     }
 }

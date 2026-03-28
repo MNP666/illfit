@@ -2,4 +2,6 @@
 
 mod results;
 
-pub use results::{OutputError, write_fit_outputs};
+pub use results::{
+    OutputError, write_dmax_scan_outputs, write_fit_outputs, write_truncation_scan_outputs,
+};

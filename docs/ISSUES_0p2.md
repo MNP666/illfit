@@ -124,6 +124,15 @@ Definition of done:
 
 ## Milestone 6: `Dmax` stability analysis
 
+Scope note:
+
+- the original `0.2` plan for Milestone 6 focused only on local `Dmax`
+  sensitivity
+- the truncation-scan issues below were added on 2026-03-28 after implementation
+  work on earlier milestones had already started
+- this is intentional scope growth to capture another important user judgment:
+  how many low-`q` points to exclude before fitting
+
 ### Issue 6.1: Implement local `Dmax` scan workflow
 
 Run the same fitting machinery across a neighborhood around a chosen `Dmax`.
@@ -143,6 +152,48 @@ Definition of done:
 - scan output includes per-`Dmax` fit statistics
 - variation in `Rg` and `I(0)` is reported
 - output is suitable for later plotting or comparison
+
+### Issue 6.3: Implement local low-`q` truncation scan workflow
+
+Status: added after work started
+
+Run the same fitting machinery across a neighborhood around a user-chosen low-`q`
+truncation point, expressed initially as "drop the first N points".
+
+This should be a local scan around a user-selected starting value rather than a
+global search. The expectation is that the starting truncation is usually
+reasonable, while nearby values may reveal how sensitive the inferred solution
+is to that choice.
+
+Definition of done:
+
+- user can specify a baseline dropped-point count
+- user can scan nearby truncations in fixed steps, with step size `5` points as
+  the initial intended workflow
+- each scan entry records both dropped-point count and resulting minimum
+  retained `q`
+- scan reuses the same underlying fit pipeline as standard fits and `Dmax`
+  scans
+
+### Issue 6.4: Handle degraded nearby truncation fits and summarize truncation stability
+
+Status: added after work started
+
+When scanning nearby truncation choices, adding more low-`q` data can
+reasonably produce poor fits or poor `P(r)` behavior. The tool should detect,
+record, and report these cases instead of assuming all nearby scan points are
+valid or equally interpretable.
+
+Definition of done:
+
+- truncation scan output reports per-scan fit statistics such as `Rg`, `I(0)`,
+  and fit quality metrics for successful fits
+- scan output records when a nearby truncation produces a failed fit or a fit
+  flagged as poor or suspicious
+- degraded nearby results are preserved in the summary rather than silently
+  discarded
+- output is suitable for later plotting or comparison, including scans with a
+  mix of acceptable and poor nearby fits
 
 ## Milestone 7: CLI and ergonomics
 

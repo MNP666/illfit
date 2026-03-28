@@ -3,7 +3,7 @@ use std::fmt;
 use std::fs;
 use std::path::Path;
 
-use crate::analysis::FitSummary;
+use crate::analysis::{DmaxScanResult, FitSummary, TruncationScanOutcome, TruncationScanResult};
 use crate::data::SaxsCurve;
 use crate::solver::FitResult;
 use crate::transform::ForwardTransform;
@@ -50,6 +50,34 @@ pub fn write_fit_outputs(
     write_fit_csv(output_dir.join("fit.csv"), curve, fit)?;
     write_residuals_csv(output_dir.join("residuals.csv"), curve, fit)?;
     write_report_json(output_dir.join("report.json"), transform, fit, summary)?;
+
+    Ok(())
+}
+
+/// Write the standard summary artifacts for a local `Dmax` scan.
+pub fn write_dmax_scan_outputs(
+    output_dir: impl AsRef<Path>,
+    scan: &DmaxScanResult,
+) -> Result<(), OutputError> {
+    let output_dir = output_dir.as_ref();
+    fs::create_dir_all(output_dir)?;
+
+    write_dmax_scan_csv(output_dir.join("dmax_scan.csv"), scan)?;
+    write_dmax_scan_report_json(output_dir.join("dmax_scan_report.json"), scan)?;
+
+    Ok(())
+}
+
+/// Write the standard summary artifacts for a local low-q truncation scan.
+pub fn write_truncation_scan_outputs(
+    output_dir: impl AsRef<Path>,
+    scan: &TruncationScanResult,
+) -> Result<(), OutputError> {
+    let output_dir = output_dir.as_ref();
+    fs::create_dir_all(output_dir)?;
+
+    write_truncation_scan_csv(output_dir.join("truncation_scan.csv"), scan)?;
+    write_truncation_scan_report_json(output_dir.join("truncation_scan_report.json"), scan)?;
 
     Ok(())
 }
@@ -153,6 +181,184 @@ fn write_report_json(
     Ok(())
 }
 
+fn write_dmax_scan_csv(path: impl AsRef<Path>, scan: &DmaxScanResult) -> Result<(), OutputError> {
+    let mut contents = String::from(
+        "dmax,i_zero,radius_of_gyration,chi_square,reduced_chi_square,objective_value\n",
+    );
+
+    for entry in &scan.entries {
+        let reduced = entry
+            .summary
+            .reduced_chi_square
+            .map(|value| format!("{value:.12e}"))
+            .unwrap_or_default();
+        contents.push_str(
+            &format!(
+                "{:.12e},{:.12e},{:.12e},{:.12e},{}, {:.12e}\n",
+                entry.dmax,
+                entry.summary.i_zero,
+                entry.summary.radius_of_gyration,
+                entry.summary.chi_square,
+                reduced,
+                entry.summary.objective_value
+            )
+            .replace(", ", ","),
+        );
+    }
+
+    fs::write(path, contents)?;
+    Ok(())
+}
+
+fn write_dmax_scan_report_json(
+    path: impl AsRef<Path>,
+    scan: &DmaxScanResult,
+) -> Result<(), OutputError> {
+    let contents = format!(
+        concat!(
+            "{{\n",
+            "  \"entry_count\": {entry_count},\n",
+            "  \"dmax_range\": {dmax_range},\n",
+            "  \"i_zero_range\": {i_zero_range},\n",
+            "  \"radius_of_gyration_range\": {radius_of_gyration_range},\n",
+            "  \"chi_square_range\": {chi_square_range},\n",
+            "  \"objective_value_range\": {objective_value_range}\n",
+            "}}\n"
+        ),
+        entry_count = scan.entries.len(),
+        dmax_range = metric_range_json(scan.stability_summary.dmax_range),
+        i_zero_range = metric_range_json(scan.stability_summary.i_zero_range),
+        radius_of_gyration_range =
+            metric_range_json(scan.stability_summary.radius_of_gyration_range),
+        chi_square_range = metric_range_json(scan.stability_summary.chi_square_range),
+        objective_value_range = metric_range_json(scan.stability_summary.objective_value_range),
+    );
+
+    fs::write(path, contents)?;
+    Ok(())
+}
+
+fn write_truncation_scan_csv(
+    path: impl AsRef<Path>,
+    scan: &TruncationScanResult,
+) -> Result<(), OutputError> {
+    let mut contents = String::from(
+        "dropped_point_count,q_min,status,quality_flags,i_zero,radius_of_gyration,chi_square,reduced_chi_square,objective_value,error_message\n",
+    );
+
+    for entry in &scan.entries {
+        match &entry.outcome {
+            TruncationScanOutcome::Successful {
+                summary,
+                quality_flags,
+                ..
+            } => {
+                let q_min = entry
+                    .minimum_retained_q
+                    .map(|value| format!("{value:.12e}"))
+                    .unwrap_or_default();
+                let reduced = summary
+                    .reduced_chi_square
+                    .map(|value| format!("{value:.12e}"))
+                    .unwrap_or_default();
+                let flags = quality_flags
+                    .iter()
+                    .map(|flag| format!("{flag:?}"))
+                    .collect::<Vec<_>>()
+                    .join("|");
+
+                contents.push_str(&format!(
+                    "{},{},success,{},{:.12e},{:.12e},{:.12e},{},{:.12e},\n",
+                    entry.dropped_point_count,
+                    q_min,
+                    flags,
+                    summary.i_zero,
+                    summary.radius_of_gyration,
+                    summary.chi_square,
+                    reduced,
+                    summary.objective_value
+                ));
+            }
+            TruncationScanOutcome::Failed { error_message } => {
+                let q_min = entry
+                    .minimum_retained_q
+                    .map(|value| format!("{value:.12e}"))
+                    .unwrap_or_default();
+                contents.push_str(&format!(
+                    "{},{},failed,,,,,,,\"{}\"\n",
+                    entry.dropped_point_count,
+                    q_min,
+                    error_message.replace('"', "'")
+                ));
+            }
+        }
+    }
+
+    fs::write(path, contents)?;
+    Ok(())
+}
+
+fn write_truncation_scan_report_json(
+    path: impl AsRef<Path>,
+    scan: &TruncationScanResult,
+) -> Result<(), OutputError> {
+    let q_min_range = scan
+        .stability_summary
+        .q_min_range
+        .map(metric_range_json)
+        .unwrap_or_else(|| String::from("null"));
+    let i_zero_range = scan
+        .stability_summary
+        .i_zero_range
+        .map(metric_range_json)
+        .unwrap_or_else(|| String::from("null"));
+    let radius_of_gyration_range = scan
+        .stability_summary
+        .radius_of_gyration_range
+        .map(metric_range_json)
+        .unwrap_or_else(|| String::from("null"));
+    let chi_square_range = scan
+        .stability_summary
+        .chi_square_range
+        .map(metric_range_json)
+        .unwrap_or_else(|| String::from("null"));
+    let objective_value_range = scan
+        .stability_summary
+        .objective_value_range
+        .map(metric_range_json)
+        .unwrap_or_else(|| String::from("null"));
+
+    let contents = format!(
+        concat!(
+            "{{\n",
+            "  \"attempted_entry_count\": {attempted_entry_count},\n",
+            "  \"successful_entry_count\": {successful_entry_count},\n",
+            "  \"failed_entry_count\": {failed_entry_count},\n",
+            "  \"flagged_entry_count\": {flagged_entry_count},\n",
+            "  \"dropped_point_range\": {dropped_point_range},\n",
+            "  \"q_min_range\": {q_min_range},\n",
+            "  \"i_zero_range\": {i_zero_range},\n",
+            "  \"radius_of_gyration_range\": {radius_of_gyration_range},\n",
+            "  \"chi_square_range\": {chi_square_range},\n",
+            "  \"objective_value_range\": {objective_value_range}\n",
+            "}}\n"
+        ),
+        attempted_entry_count = scan.stability_summary.attempted_entry_count,
+        successful_entry_count = scan.stability_summary.successful_entry_count,
+        failed_entry_count = scan.stability_summary.failed_entry_count,
+        flagged_entry_count = scan.stability_summary.flagged_entry_count,
+        dropped_point_range = metric_range_json(scan.stability_summary.dropped_point_range),
+        q_min_range = q_min_range,
+        i_zero_range = i_zero_range,
+        radius_of_gyration_range = radius_of_gyration_range,
+        chi_square_range = chi_square_range,
+        objective_value_range = objective_value_range,
+    );
+
+    fs::write(path, contents)?;
+    Ok(())
+}
+
 fn join_numeric_array(values: &[f64]) -> String {
     let body = values
         .iter()
@@ -162,10 +368,19 @@ fn join_numeric_array(values: &[f64]) -> String {
     format!("[{body}]")
 }
 
+fn metric_range_json(range: crate::analysis::DmaxScanMetricRange) -> String {
+    format!(
+        "{{\"min\": {:.12e}, \"max\": {:.12e}, \"span\": {:.12e}}}",
+        range.min, range.max, range.span
+    )
+}
+
 #[cfg(test)]
 mod tests {
-    use super::write_fit_outputs;
-    use crate::analysis::summarize_fit;
+    use super::{write_dmax_scan_outputs, write_fit_outputs, write_truncation_scan_outputs};
+    use crate::analysis::{
+        DmaxScanConfig, TruncationScanConfig, run_dmax_scan, run_truncation_scan, summarize_fit,
+    };
     use crate::basis::CubicBSplineBasis;
     use crate::data::{SaxsCurve, SaxsPoint};
     use crate::solver::solve_curve;
@@ -226,6 +441,72 @@ mod tests {
         assert!(report_json.contains("\"i_zero\""));
         assert!(report_json.contains("\"radius_of_gyration\""));
         assert!(report_json.contains("\"coefficients\""));
+
+        fs::remove_dir_all(output_dir).unwrap();
+    }
+
+    #[test]
+    fn writes_dmax_scan_artifacts() {
+        let (curve, _) = synthetic_curve_from_coefficients(&[1.0; 6]);
+        let scan = run_dmax_scan(
+            &curve,
+            &DmaxScanConfig {
+                center_dmax: 8.0,
+                half_width: 1.0,
+                point_count: 5,
+                basis_size: 6,
+                integration_intervals: 400,
+                lambda: 1.0e-8,
+                pr_sample_point_count: 41,
+            },
+        )
+        .unwrap();
+        let output_dir = temp_output_dir();
+
+        write_dmax_scan_outputs(&output_dir, &scan).unwrap();
+
+        let scan_csv = fs::read_to_string(output_dir.join("dmax_scan.csv")).unwrap();
+        let scan_report = fs::read_to_string(output_dir.join("dmax_scan_report.json")).unwrap();
+
+        assert!(scan_csv.starts_with(
+            "dmax,i_zero,radius_of_gyration,chi_square,reduced_chi_square,objective_value\n"
+        ));
+        assert!(scan_report.contains("\"entry_count\""));
+        assert!(scan_report.contains("\"radius_of_gyration_range\""));
+
+        fs::remove_dir_all(output_dir).unwrap();
+    }
+
+    #[test]
+    fn writes_truncation_scan_artifacts() {
+        let (curve, _) = synthetic_curve_from_coefficients(&[1.0; 6]);
+        let scan = run_truncation_scan(
+            &curve,
+            &TruncationScanConfig {
+                dmax: 8.0,
+                baseline_drop_count: 10,
+                step_size: 5,
+                point_count: 5,
+                basis_size: 6,
+                integration_intervals: 400,
+                lambda: 1.0e-8,
+                pr_sample_point_count: 41,
+            },
+        )
+        .unwrap();
+        let output_dir = temp_output_dir();
+
+        write_truncation_scan_outputs(&output_dir, &scan).unwrap();
+
+        let scan_csv = fs::read_to_string(output_dir.join("truncation_scan.csv")).unwrap();
+        let scan_report =
+            fs::read_to_string(output_dir.join("truncation_scan_report.json")).unwrap();
+
+        assert!(scan_csv.starts_with(
+            "dropped_point_count,q_min,status,quality_flags,i_zero,radius_of_gyration,chi_square,reduced_chi_square,objective_value,error_message\n"
+        ));
+        assert!(scan_report.contains("\"attempted_entry_count\""));
+        assert!(scan_report.contains("\"failed_entry_count\""));
 
         fs::remove_dir_all(output_dir).unwrap();
     }
