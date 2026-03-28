@@ -30,3 +30,7 @@ env/
 
 # Jupyter
 .ipynb_checkpoints/
+
+# Profiling artifacts
+profiling/output/
+profiling/.matplotlib/
