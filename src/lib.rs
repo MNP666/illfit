@@ -9,6 +9,7 @@
 pub mod analysis;
 pub mod basis;
 pub mod data;
+pub mod io;
 pub mod regularization;
 pub mod solver;
 pub mod transform;
