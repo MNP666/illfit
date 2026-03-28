@@ -116,18 +116,29 @@ synthetic, and reference datasets used during development and validation.
 
 ## Near-term direction
 
-The current `0.2` direction is centered on:
+Version `0.2` is centered on:
 
 - a CLI-first workflow
 - smooth basis-function representations for `P(r)`
 - regularized fitting of SAXS curves
 - local `Dmax` scanning to assess solution stability
+- local low-`q` truncation scanning to assess preprocessing sensitivity
+- lightweight Python profiling against reference `P(r)` outputs
 
 ## Development notes
 
-The Rust crate has been initialized with Cargo, but the scientific core is not
-implemented yet. The next steps are to grow the crate structure in line with the
-planning documents and build the numerical pipeline incrementally.
+The `0.2` scientific core is now implemented end to end:
+
+- SAXS data parsing and validation
+- cubic B-spline `P(r)` basis representation
+- forward transform to predicted `I(q)`
+- weighted regularized least-squares fitting
+- derived summaries such as `I(0)` and `Rg`
+- structured output writing
+- CLI commands for single fits, `Dmax` scans, and truncation scans
+
+The next iterations can build on this foundation with stronger scientific
+validation, richer model families, and more advanced fitting strategies.
 
 ## Developer workflow
 

@@ -235,12 +235,13 @@ Definition of done:
 
 ### Issue 8.1: Add unit tests for core numerical pieces
 
-Status: in progress
+Status: complete
 
 Current note:
 
 - parser and validation tests are implemented
-- future numerical modules will need their own dedicated tests as they are added
+- basis, transform, regularization, solver, analysis, scan, export, and CLI
+  flows all have dedicated tests in the current `0.2` implementation
 
 Cover parser behavior, basis evaluation, transform logic, regularization
 construction, and derived metrics.
@@ -290,3 +291,50 @@ The iteration is complete when:
 - outputs are reproducible and structured
 - tests cover the major scientific building blocks
 - the code and docs are clear enough to support Rust learning during review
+
+## Closure status
+
+Iteration status: closed as complete on 2026-03-29
+
+Finished in `0.2`:
+
+- `1.1` Initialize Rust crate and workspace conventions
+- `1.2` Write high-level architecture notes in code
+- `2.1` Implement SAXS data parser
+- `2.2` Add validated SAXS curve type
+- `3.1` Implement cubic B-spline basis representation for `P(r)`
+- `3.2` Implement forward transform to predicted `I(q)`
+- `4.1` Implement weighted regularized least-squares solver
+- `4.2` Implement smoothness penalty construction
+- `5.1` Compute derived summary metrics
+- `5.2` Write result export layer
+- `6.1` Implement local `Dmax` scan workflow
+- `6.2` Add scan summary metrics
+- `6.3` Implement local low-`q` truncation scan workflow
+- `6.4` Handle degraded nearby truncation fits and summarize truncation stability
+- `7.1` Implement `fit` CLI command
+- `7.2` Implement `scan-dmax` CLI command
+- `7.3` Implement `scan-truncation` CLI command
+- `8.1` Add unit tests for core numerical pieces
+- `8.3` Document developer workflow
+
+Deferred beyond `0.2`:
+
+- `8.2` Add small reference or synthetic datasets for validation
+  Reason: the repository now contains compact real reference datasets, but it
+  does not yet contain a dedicated synthetic validation dataset with documented
+  expected behavior.
+- positivity constraints for `P(r)`
+- automatic regularization selection
+- additional basis families
+- built-in plotting
+
+Testing note for `8.1`:
+
+- `8.1` is reasonable to close for `0.2`. The codebase now has targeted tests
+  for the parser, validated data model, basis evaluation, forward transform,
+  regularization, solver behavior, derived metrics, scan workflows, export
+  writing, and CLI parsing.
+- What remains for later is not basic unit-test coverage, but stronger
+  scientific regression coverage: synthetic truth-recovery cases, more
+  reference-dataset comparisons, and parameter-sensitivity regression checks.
