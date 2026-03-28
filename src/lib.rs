@@ -6,6 +6,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod analysis;
 pub mod basis;
 pub mod data;
 pub mod regularization;
