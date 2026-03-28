@@ -47,6 +47,17 @@ about:
 - what columns and units it uses
 - what it is intended to test
 
+For GNOM-style `.out` files containing reference `P(r)` curves, only the real
+space block should be treated as authoritative:
+
+- scan until the `R  P(R)  ERROR` header
+- then read the first contiguous block of lines with exactly three numeric
+  columns and strictly increasing `r`
+- stop once that pattern breaks
+
+This rule avoids accidentally reading the earlier experimental-fit table or any
+footer content in older `.out` files.
+
 ## Notes
 
 - Keep files small where possible, especially in `examples/`

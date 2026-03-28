@@ -8,4 +8,6 @@
 
 pub mod basis;
 pub mod data;
+pub mod regularization;
+pub mod solver;
 pub mod transform;
