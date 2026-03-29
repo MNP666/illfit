@@ -23,8 +23,11 @@ The project already supports:
 - weighted regularized least-squares fitting from `I(q)` data
 - derived summaries such as `I(0)` and `Rg`
 - local `Dmax` and low-`q` truncation sensitivity scans
+- deterministic synthetic benchmark suites
+- committed regression benchmark assets
+- noiseless and noisy benchmark recovery workflows
 - structured CSV/JSON outputs
-- Python-based profiling against reference `P(r)` outputs
+- Python-based profiling and plotting for both reference data and benchmark data
 
 This is still an early scientific implementation, but it is now a real
 end-to-end tool rather than just a scaffold.
@@ -139,19 +142,37 @@ Current repository structure:
 ├── data/
 │   ├── README.md
 │   ├── examples/
+│   ├── regression/
 │   ├── reference/
 │   └── synthetic/
 ├── docs/
 │   ├── DEVELOPMENT.md
+│   ├── PRD_0p3.md
+│   ├── PRD_0p4.md
 │   ├── PRD_0p2.md
+│   ├── ISSUES_0p3.md
+│   ├── ISSUES_0p4.md
 │   ├── ISSUES_0p2.md
+│   ├── TECHNICAL_0p4.md
 │   └── README.md
 ├── profiling/
 │   ├── README.md
+│   ├── benchmark_export.toml
 │   ├── compare_reference_pr.py
-│   └── config.toml
+│   ├── config.toml
+│   ├── export_synthetic_benchmarks.py
+│   ├── export_noisy_benchmark_signal_scaled.py
+│   ├── export_noisy_benchmark_variants.py
+│   ├── noisy_benchmark.toml
+│   ├── noisy_benchmark_signal_scaled.toml
+│   ├── plot_benchmark_case_fits.py
+│   ├── plot_benchmark_recovery.py
+│   ├── plot_noisy_benchmark_case_fits.py
+│   ├── plot_noisy_benchmark_recovery.py
+│   └── plot_synthetic_suite.py
 └── src/
     ├── analysis/
+    ├── benchmark/
     ├── basis/
     ├── data/
     ├── io/
@@ -174,6 +195,10 @@ iteration-level planning documents.
 
 - `PRD_0p2.md` describes the goals, scope, and design intent for version `0.2`
 - `ISSUES_0p2.md` breaks that iteration into concrete work items
+- `PRD_0p3.md` and `ISSUES_0p3.md` capture the synthetic benchmark and
+  regression-testing iteration
+- `TECHNICAL_0p4.md`, `PRD_0p4.md`, and `ISSUES_0p4.md` frame the planned
+  weighting and lambda-selection work
 
 This project uses versioned planning documents instead of one large permanent
 specification. That keeps each iteration focused and makes it easier to refine
@@ -190,8 +215,8 @@ reference `P(r)` outputs.
 - `config.toml` controls which datasets and sweep parameters to use
 
 This is intentionally separate from the Rust crate. Python is currently the
-fastest way to automate subprocess-based comparisons and plotting while the
-scientific core is still evolving.
+fastest way to automate subprocess-based comparisons, experiment exports, and
+plotting while the scientific core is still evolving.
 
 ## About `data/`
 
@@ -199,7 +224,9 @@ The [`data/`](/Users/air/Documents/illfit/data/README.md) folder is for example,
 synthetic, and reference datasets used during development and validation.
 
 - `examples/` is for small parser-focused files
-- `synthetic/` is for generated test cases with known behavior
+- `synthetic/` is for generated exploratory benchmark and noisy-suite assets
+- `regression/` is for committed benchmark assets used in standing regression
+  tests
 - `reference/` is for trusted real datasets and higher-level validation
 
 ## What the CLI writes
@@ -221,20 +248,35 @@ Single-fit runs write:
 - `truncation_scan.csv`
 - `truncation_scan_report.json`
 
+`benchmark-recover` runs write:
+
+- per-case truth, recovery, and comparison files
+- `benchmark_suite_summary.csv`
+- `benchmark_suite_report.json`
+
+`benchmark-recover-noisy` runs write:
+
+- per-noise-level and per-case recovery bundles
+- noisy-case metadata
+- `benchmark_suite_summary.csv`
+- `benchmark_suite_report.json`
+
 ## Near-term direction
 
-Version `0.2` is now centered on:
+Version `0.3` is now centered on:
 
 - a CLI-first workflow
 - smooth basis-function representations for `P(r)`
 - regularized fitting of SAXS curves
 - local `Dmax` scanning to assess solution stability
 - local low-`q` truncation scanning to assess preprocessing sensitivity
-- lightweight Python profiling against reference `P(r)` outputs
+- deterministic synthetic benchmark generation and recovery
+- noisy observed benchmark analysis
+- lightweight Python profiling against both reference and benchmark outputs
 
 ## Development notes
 
-The `0.2` scientific core is now implemented end to end:
+The `0.3` scientific core is now implemented end to end:
 
 - SAXS data parsing and validation
 - cubic B-spline `P(r)` basis representation
@@ -243,17 +285,19 @@ The `0.2` scientific core is now implemented end to end:
 - derived summaries such as `I(0)` and `Rg`
 - structured output writing
 - CLI commands for single fits, `Dmax` scans, and truncation scans
-- profiling-time comparison against reference `P(r)` outputs
+- benchmark asset loading, recovery, and comparison
+- regression testing against committed benchmark suites
+- profiling-time comparison and plotting for both reference and benchmark data
 
 The next iterations can build on this foundation with stronger scientific
 validation, richer model families, and more advanced fitting strategies.
 
-Likely `0.3` directions include:
+Likely `0.4` directions include:
 
-- stronger scientific regression testing
-- synthetic validation datasets with known expected behavior
-- improved parameter-selection workflows
-- richer model families and constraints
+- weighting or scaling strategy experiments
+- lambda scans and automatic lambda selection
+- L-curve and GCV analysis
+- TOML-driven experiment workflows and profiling output bundles
 
 ## Developer workflow
 
