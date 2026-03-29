@@ -14,7 +14,7 @@ that are not immediately obvious during review.
 
 ## Current status
 
-Version `0.2.0` is complete.
+Version `0.3.0` is complete.
 
 The project already supports:
 
