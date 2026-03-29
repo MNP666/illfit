@@ -34,3 +34,7 @@ env/
 # Profiling artifacts
 profiling/output/
 profiling/.matplotlib/
+
+# Generated synthetic benchmark fixtures
+data/synthetic/*
+!data/synthetic/.gitkeep

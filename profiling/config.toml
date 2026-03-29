@@ -9,4 +9,4 @@ keep_existing_output = false
 [sweep]
 basis_sizes = [16]
 lambda_values = [0.01]
-drop_first_values = [0]
+drop_first_values = [15]
