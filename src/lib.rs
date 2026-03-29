@@ -8,6 +8,7 @@
 
 pub mod analysis;
 pub mod basis;
+pub mod benchmark;
 pub mod data;
 pub mod io;
 pub mod regularization;

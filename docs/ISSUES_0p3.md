@@ -15,10 +15,19 @@ Status note:
 
 ### Issue 1.1: Define synthetic benchmark case types
 
-Status: not started
+Status: in progress
 
 Create explicit Rust types for synthetic truth cases, recovered benchmark
 results, and benchmark suite summaries.
+
+Current note:
+
+- the new [`src/benchmark/mod.rs`](/Users/air/Documents/illfit/src/benchmark/mod.rs)
+  and [`src/benchmark/suite.rs`](/Users/air/Documents/illfit/src/benchmark/suite.rs)
+  modules now define typed truth-case, suite-summary, and suite container
+  structs
+- recovery-result types still remain to be added once the recovery path is
+  wired in
 
 Definition of done:
 
@@ -28,10 +37,16 @@ Definition of done:
 
 ### Issue 1.2: Add benchmark file I/O types
 
-Status: not started
+Status: in progress
 
 Define the serialized output model for per-case truth data, per-case recovery
 data, and suite summary artifacts.
+
+Current note:
+
+- Rust now has typed loaders for exported `pr_truth.csv`, `iq_truth.csv`,
+  `metadata.json`, and `suite_summary.json`
+- recovery artifact I/O still remains to be added later in the iteration
 
 Definition of done:
 
@@ -268,9 +283,16 @@ Definition of done:
 
 ### Issue 8.1: Implement Rust-side benchmark asset loading workflow
 
-Status: not started
+Status: in progress
 
 Provide a Rust-side workflow for loading exported synthetic benchmark assets.
+
+Current note:
+
+- [`load_benchmark_truth_case(...)`](/Users/air/Documents/illfit/src/benchmark/suite.rs)
+  and [`load_benchmark_suite(...)`](/Users/air/Documents/illfit/src/benchmark/suite.rs)
+  now provide the first Rust-side loading path
+- CLI exposure of that loading workflow is still pending
 
 Definition of done:
 
