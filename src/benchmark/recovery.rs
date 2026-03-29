@@ -118,6 +118,14 @@ pub fn recover_benchmark_truth_case(
     validate_recovery_config(config)?;
 
     let observed_curve = synthetic_observed_curve(truth_case, config.synthetic_sigma)?;
+    recover_benchmark_observed_case(truth_case, observed_curve, config)
+}
+
+pub(crate) fn recover_benchmark_observed_case(
+    truth_case: &BenchmarkTruthCase,
+    observed_curve: SaxsCurve,
+    config: BenchmarkRecoveryConfig,
+) -> Result<BenchmarkRecoveryResult, BenchmarkRecoveryError> {
     let basis = CubicBSplineBasis::new(config.dmax, config.basis_size)?;
     let transform = ForwardTransform::new(basis, config.integration_intervals)?;
     let fit = solve_curve(&observed_curve, &transform, config.lambda)?;
@@ -190,8 +198,8 @@ mod tests {
     fn synthetic_suite_path() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("data")
-            .join("synthetic")
-            .join("clamped_spline_seed42")
+            .join("regression")
+            .join("clamped_spline")
     }
 
     #[test]
@@ -269,5 +277,13 @@ mod tests {
         .unwrap();
 
         assert_eq!(result.case_results.len(), suite.truth_cases.len());
+    }
+
+    #[test]
+    fn regression_suite_has_expected_case_count() {
+        let suite = load_benchmark_suite(synthetic_suite_path()).unwrap();
+
+        assert_eq!(suite.summary.accepted_count, 12);
+        assert_eq!(suite.truth_cases.len(), 12);
     }
 }

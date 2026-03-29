@@ -187,10 +187,18 @@ pub enum LoadBenchmarkError {
     NonFiniteCurveValue {
         curve_name: String,
     },
+    NonPositiveObservedSigma {
+        sigma: f64,
+    },
     NonMonotonicAxis {
         curve_name: String,
         previous_value: f64,
         current_value: f64,
+    },
+    ObservedTruthLengthMismatch {
+        case_id: String,
+        truth_len: usize,
+        observed_len: usize,
     },
     MetadataSummaryMismatch {
         case_id: String,
@@ -232,6 +240,12 @@ impl fmt::Display for LoadBenchmarkError {
                 f,
                 "encountered a non-finite value in benchmark curve `{curve_name}`"
             ),
+            Self::NonPositiveObservedSigma { sigma } => {
+                write!(
+                    f,
+                    "encountered a non-positive observed sigma value: {sigma}"
+                )
+            }
             Self::NonMonotonicAxis {
                 curve_name,
                 previous_value,
@@ -251,6 +265,14 @@ impl fmt::Display for LoadBenchmarkError {
                 f,
                 "accepted summary contains case `{case_id}` marked as not accepted"
             ),
+            Self::ObservedTruthLengthMismatch {
+                case_id,
+                truth_len,
+                observed_len,
+            } => write!(
+                f,
+                "noisy observed and truth I(q) lengths differ for case `{case_id}`: truth has {truth_len} rows but observed has {observed_len}"
+            ),
             Self::SuiteCaseCountMismatch { expected, found } => write!(
                 f,
                 "suite summary expected {expected} accepted cases, but {found} were loaded"
@@ -269,9 +291,11 @@ impl Error for LoadBenchmarkError {
             | Self::InvalidCsvRow { .. }
             | Self::NoCurveRows { .. }
             | Self::NonFiniteCurveValue { .. }
+            | Self::NonPositiveObservedSigma { .. }
             | Self::NonMonotonicAxis { .. }
             | Self::MetadataSummaryMismatch { .. }
             | Self::UnacceptedCaseInAcceptedSummary { .. }
+            | Self::ObservedTruthLengthMismatch { .. }
             | Self::SuiteCaseCountMismatch { .. } => None,
         }
     }
@@ -290,7 +314,7 @@ impl From<serde_json::Error> for LoadBenchmarkError {
 }
 
 #[derive(Debug, Deserialize)]
-struct RawBenchmarkCaseMetadata {
+pub(crate) struct RawBenchmarkCaseMetadata {
     candidate_id: String,
     family: String,
     seed: u64,
@@ -488,7 +512,7 @@ fn parse_iq_truth_csv(path: PathBuf) -> Result<BenchmarkIqCurve, LoadBenchmarkEr
     BenchmarkIqCurve::new(points)
 }
 
-fn parse_two_column_csv(
+pub(crate) fn parse_two_column_csv(
     path: PathBuf,
     expected_header: &'static str,
 ) -> Result<Vec<(f64, f64)>, LoadBenchmarkError> {
@@ -606,7 +630,7 @@ mod tests {
   "rejected_count": 2,
   "config": {
     "name": "demo_suite",
-    "output_dir": "data/synthetic/demo_suite",
+    "output_dir": "data/regression/demo_suite",
     "seed": 42,
     "candidate_count": 3,
     "max_accepted": 1,

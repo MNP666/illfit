@@ -1,0 +1,8 @@
+[suite]
+source_dir = "data/regression/clamped_spline"
+output_dir = "data/synthetic/noisy_clamped_spline_signal_scaled"
+seed = 321
+
+[noise]
+levels = [0.2, 0.3333333333, 1.0]
+scale_reference = "pointwise_intensity"

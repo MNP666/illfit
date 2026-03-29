@@ -318,8 +318,8 @@ mod tests {
     fn synthetic_suite_path() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("data")
-            .join("synthetic")
-            .join("clamped_spline_seed42")
+            .join("regression")
+            .join("clamped_spline")
     }
 
     #[test]
@@ -437,5 +437,31 @@ mod tests {
     fn reports_expected_correlation_for_identical_vectors() {
         let values = [1.0, 2.0, 3.0, 4.0];
         assert!((correlation(&values, &values) - 1.0).abs() < 1.0e-12);
+    }
+
+    #[test]
+    fn regression_suite_produces_finite_comparison_metrics() {
+        let suite = load_benchmark_suite(synthetic_suite_path()).unwrap();
+        let recovery = recover_benchmark_suite(
+            &suite,
+            BenchmarkRecoveryConfig {
+                dmax: suite.summary.config.dmax,
+                basis_size: suite.summary.config.n_weights + 2,
+                integration_intervals: suite.summary.config.integration_intervals,
+                lambda: 1.0e-2,
+                pr_sample_points: suite.summary.config.r_points,
+                synthetic_sigma: 0.05,
+            },
+        )
+        .unwrap();
+        let comparison = compare_benchmark_suite(&recovery).unwrap();
+
+        for case in &comparison.case_comparisons {
+            assert!(case.pr.rmse.is_finite());
+            assert!(case.pr.normalized_rmse.is_finite());
+            assert!(case.pr.correlation.is_finite());
+            assert!(case.iq.rmse.is_finite());
+            assert!(case.iq.normalized_rmse.is_finite());
+        }
     }
 }

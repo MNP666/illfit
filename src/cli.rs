@@ -7,12 +7,14 @@ use illfit::analysis::{
 };
 use illfit::basis::CubicBSplineBasis;
 use illfit::benchmark::{
-    BenchmarkRecoveryConfig, compare_benchmark_suite, load_benchmark_suite, recover_benchmark_suite,
+    BenchmarkRecoveryConfig, compare_benchmark_suite, compare_noisy_benchmark_suite,
+    load_benchmark_suite, load_noisy_benchmark_suite, recover_benchmark_suite,
+    recover_noisy_benchmark_suite,
 };
 use illfit::data::parse_ascii_curve_file;
 use illfit::io::{
     write_benchmark_suite_outputs, write_dmax_scan_outputs, write_fit_outputs,
-    write_truncation_scan_outputs,
+    write_noisy_benchmark_suite_outputs, write_truncation_scan_outputs,
 };
 use illfit::solver::solve_curve;
 use illfit::transform::ForwardTransform;
@@ -31,6 +33,7 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), CliError> {
         "scan-truncation" => run_scan_truncation(rest),
         "benchmark-inspect" => run_benchmark_inspect(rest),
         "benchmark-recover" => run_benchmark_recover(rest),
+        "benchmark-recover-noisy" => run_benchmark_recover_noisy(rest),
         "--help" | "-h" | "help" => Err(CliError::Usage(usage_text())),
         other => Err(CliError::Message(format!(
             "unknown command `{other}`\n\n{}",
@@ -209,6 +212,41 @@ fn run_benchmark_recover(args: Vec<String>) -> Result<(), CliError> {
     Ok(())
 }
 
+fn run_benchmark_recover_noisy(args: Vec<String>) -> Result<(), CliError> {
+    let parsed = ParsedArgs::parse(args)?;
+
+    if parsed.flag_present("help") {
+        return Err(CliError::Usage(benchmark_recover_noisy_usage()));
+    }
+
+    let suite_dir = parsed.require_path("suite-dir")?;
+    let output_dir = parsed.require_path("output-dir")?;
+    let suite = load_noisy_benchmark_suite(&suite_dir).map_err(|error| {
+        CliError::Message(format!("failed to load noisy benchmark suite: {error}"))
+    })?;
+
+    let config = BenchmarkRecoveryConfig {
+        dmax: parsed.require_f64("dmax")?,
+        basis_size: parsed.require_usize("basis-size")?,
+        integration_intervals: parsed.require_usize("integration-intervals")?,
+        lambda: parsed.require_f64("lambda")?,
+        pr_sample_points: parsed.require_usize("pr-sample-points")?,
+        synthetic_sigma: 1.0,
+    };
+
+    let suite_recovery = recover_noisy_benchmark_suite(&suite, config)
+        .map_err(|error| CliError::Message(format!("noisy benchmark recovery failed: {error}")))?;
+    let suite_comparison = compare_noisy_benchmark_suite(&suite_recovery).map_err(|error| {
+        CliError::Message(format!("noisy benchmark comparison failed: {error}"))
+    })?;
+
+    write_noisy_benchmark_suite_outputs(output_dir, &suite_recovery, &suite_comparison).map_err(
+        |error| CliError::Message(format!("failed to write noisy benchmark outputs: {error}")),
+    )?;
+
+    Ok(())
+}
+
 #[derive(Debug, Default)]
 struct ParsedArgs {
     entries: Vec<(String, String)>,
@@ -308,13 +346,14 @@ impl ParsedArgs {
 
 fn usage_text() -> String {
     format!(
-        "{}\n\n{}\n\n{}\n\n{}\n\n{}\n\n{}",
+        "{}\n\n{}\n\n{}\n\n{}\n\n{}\n\n{}\n\n{}",
         "Usage:",
         fit_usage(),
         scan_dmax_usage(),
         scan_truncation_usage(),
         benchmark_inspect_usage(),
-        benchmark_recover_usage()
+        benchmark_recover_usage(),
+        benchmark_recover_noisy_usage(),
     )
 }
 
@@ -346,9 +385,17 @@ fn benchmark_recover_usage() -> String {
     )
 }
 
+fn benchmark_recover_noisy_usage() -> String {
+    String::from(
+        "illfit benchmark-recover-noisy --suite-dir <path> --dmax <float> --basis-size <usize> --integration-intervals <usize> --lambda <float> --pr-sample-points <usize> --output-dir <path>",
+    )
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{ParsedArgs, benchmark_recover_usage, fit_usage, run};
+    use super::{
+        ParsedArgs, benchmark_recover_noisy_usage, benchmark_recover_usage, fit_usage, run,
+    };
 
     #[test]
     fn parses_flag_value_pairs() {
@@ -396,5 +443,16 @@ mod tests {
         ])
         .unwrap_err();
         assert_eq!(error.to_string(), benchmark_recover_usage());
+    }
+
+    #[test]
+    fn returns_noisy_benchmark_recover_help() {
+        let error = run(vec![
+            "illfit".to_string(),
+            "benchmark-recover-noisy".to_string(),
+            "--help".to_string(),
+        ])
+        .unwrap_err();
+        assert_eq!(error.to_string(), benchmark_recover_noisy_usage());
     }
 }

@@ -399,7 +399,7 @@ Definition of done:
 
 ### Issue 9.1: Add deterministic regression benchmark cases
 
-Status: not started
+Status: in progress
 
 Promote a small number of accepted synthetic benchmark cases into standing
 regression assets.
@@ -419,9 +419,19 @@ Definition of done:
 
 ### Issue 9.2: Add regression tests based on benchmark recovery behavior
 
-Status: not started
+Status: in progress
 
 Use the benchmark subset to protect important scientific behavior over time.
+
+Current note:
+
+- the benchmark tests now load the committed regression suite from
+  [`data/regression/clamped_spline`](/Users/air/Documents/illfit/data/regression/clamped_spline)
+  rather than an exploratory synthetic output directory
+- regression-style checks now assert the committed suite case count and require
+  finite truth-vs-recovery metrics across the full suite
+- the remaining work is to decide which metric tolerances should be made
+  stricter over time
 
 Definition of done:
 
@@ -442,10 +452,28 @@ Scope note:
 
 ### Issue 10.1: Add fixed Gaussian-noise variants for selected benchmark cases
 
-Status: not started
+Status: in progress
 
 Create a small number of noisy observed curves from selected deterministic truth
 cases using predefined Gaussian noise levels.
+
+Current note:
+
+- [`profiling/export_noisy_benchmark_variants.py`](/Users/air/Documents/illfit/profiling/export_noisy_benchmark_variants.py)
+  and [`profiling/noisy_benchmark.toml`](/Users/air/Documents/illfit/profiling/noisy_benchmark.toml)
+  now generate fixed Gaussian-noise observed `I(q)` variants from the committed
+  regression suite
+- [`profiling/export_noisy_benchmark_signal_scaled.py`](/Users/air/Documents/illfit/profiling/export_noisy_benchmark_signal_scaled.py)
+  and
+  [`profiling/noisy_benchmark_signal_scaled.toml`](/Users/air/Documents/illfit/profiling/noisy_benchmark_signal_scaled.toml)
+  now provide a second, pointwise signal-scaled noise model with levels such as
+  `y/5`, `y/3`, and `y`
+- noisy variants are written under [`data/synthetic/noisy_clamped_spline`](/Users/air/Documents/illfit/data/synthetic/noisy_clamped_spline)
+  while preserving the original truth curves separately
+- the pointwise signal-scaled variants are written under
+  [`data/synthetic/noisy_clamped_spline_signal_scaled`](/Users/air/Documents/illfit/data/synthetic/noisy_clamped_spline_signal_scaled)
+  and currently appear to produce a more gradual onset of negative observed
+  intensities
 
 Definition of done:
 
@@ -455,9 +483,20 @@ Definition of done:
 
 ### Issue 10.2: Record negative-intensity statistics for noisy cases
 
-Status: not started
+Status: in progress
 
 Track how often noisy observed curves become partially negative.
+
+Current note:
+
+- the noisy export now records per-case negative-value count, negative-value
+  fraction, and minimum observed intensity in `noise_metadata.json` and
+  `noisy_summary.*`
+- the first max-intensity-scaled run already shows substantial negativity in
+  the high-`q` tail
+- the newer pointwise signal-scaled run gives a more graded progression:
+  essentially no negatives at `y/5`, rare negatives at `y/3`, and a substantial
+  negative fraction at `y`
 
 Definition of done:
 
@@ -466,10 +505,24 @@ Definition of done:
 
 ### Issue 10.3: Compare recovery degradation across noisy variants
 
-Status: not started
+Status: in progress
 
 Measure how recovery quality changes as noise increases for the selected noisy
 benchmark subset.
+
+Current note:
+
+- Rust now has a dedicated noisy benchmark path in
+  [`src/benchmark/noisy.rs`](/Users/air/Documents/illfit/src/benchmark/noisy.rs)
+  for loading noisy observed suites, running recovery against the stored
+  observed `I(q)` curves, and comparing the recovered result back to the known
+  truth
+- the CLI now exposes
+  [`benchmark-recover-noisy`](/Users/air/Documents/illfit/src/cli.rs)
+  for running this workflow end to end
+- noisy benchmark outputs now include suite-level summaries of negative-value
+  fraction and recovery error ranges, and the signal-scaled noisy suite has
+  already been exercised end to end through this path
 
 Definition of done:
 

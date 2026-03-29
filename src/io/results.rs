@@ -6,7 +6,7 @@ use std::path::Path;
 use crate::analysis::{DmaxScanResult, FitSummary, TruncationScanOutcome, TruncationScanResult};
 use crate::benchmark::{
     BenchmarkRecoveryComparison, BenchmarkRecoveryResult, BenchmarkSuiteComparison,
-    BenchmarkSuiteRecoveryResult,
+    BenchmarkSuiteRecoveryResult, NoisyBenchmarkSuiteRecoveryResult,
 };
 use crate::data::SaxsCurve;
 use crate::solver::FitResult;
@@ -97,6 +97,7 @@ pub fn write_benchmark_case_outputs(
 
     write_benchmark_truth_pr_csv(output_dir.join("pr_truth.csv"), recovery)?;
     write_benchmark_truth_iq_csv(output_dir.join("iq_truth.csv"), recovery)?;
+    write_benchmark_observed_iq_csv(output_dir.join("iq_observed.csv"), recovery)?;
     write_benchmark_recovered_pr_csv(output_dir.join("pr_recovered.csv"), recovery)?;
     write_benchmark_recovered_iq_csv(output_dir.join("iq_recovered.csv"), recovery)?;
     write_benchmark_pr_comparison_csv(output_dir.join("pr_comparison.csv"), comparison)?;
@@ -146,6 +147,46 @@ pub fn write_benchmark_suite_outputs(
     Ok(())
 }
 
+/// Write per-case and suite-level artifacts for one recovered noisy benchmark suite.
+pub fn write_noisy_benchmark_suite_outputs(
+    output_dir: impl AsRef<Path>,
+    suite_recovery: &NoisyBenchmarkSuiteRecoveryResult,
+    suite_comparison: &BenchmarkSuiteComparison,
+) -> Result<(), OutputError> {
+    let output_dir = output_dir.as_ref();
+    fs::create_dir_all(output_dir)?;
+
+    for ((noisy_case, recovery), comparison) in suite_recovery
+        .suite
+        .cases
+        .iter()
+        .zip(suite_recovery.case_results.iter())
+        .zip(suite_comparison.case_comparisons.iter())
+    {
+        let case_output_dir = output_dir
+            .join(format!(
+                "noise_{}",
+                format_noise_level(noisy_case.noise_metadata.noise_level)
+            ))
+            .join(&noisy_case.truth_case.metadata.candidate_id);
+        write_benchmark_case_outputs(&case_output_dir, recovery, comparison)?;
+        write_noisy_case_metadata_json(case_output_dir.join("noise_metadata.json"), noisy_case)?;
+    }
+
+    write_noisy_benchmark_suite_summary_csv(
+        output_dir.join("benchmark_suite_summary.csv"),
+        suite_recovery,
+        suite_comparison,
+    )?;
+    write_noisy_benchmark_suite_report_json(
+        output_dir.join("benchmark_suite_report.json"),
+        suite_recovery,
+        suite_comparison,
+    )?;
+
+    Ok(())
+}
+
 fn write_pr_csv(path: impl AsRef<Path>, summary: &FitSummary) -> Result<(), OutputError> {
     let mut contents = String::from("r,p_of_r\n");
 
@@ -176,6 +217,21 @@ fn write_benchmark_truth_iq_csv(
     let mut contents = String::from("q,i_of_q_truth\n");
     for point in recovery.truth_case.iq_truth.points() {
         contents.push_str(&format!("{:.12e},{:.12e}\n", point.q, point.intensity));
+    }
+    fs::write(path, contents)?;
+    Ok(())
+}
+
+fn write_benchmark_observed_iq_csv(
+    path: impl AsRef<Path>,
+    recovery: &BenchmarkRecoveryResult,
+) -> Result<(), OutputError> {
+    let mut contents = String::from("q,i_of_q_observed,sigma\n");
+    for point in recovery.observed_curve.points() {
+        contents.push_str(&format!(
+            "{:.12e},{:.12e},{:.12e}\n",
+            point.q, point.intensity, point.sigma
+        ));
     }
     fs::write(path, contents)?;
     Ok(())
@@ -448,6 +504,104 @@ fn write_benchmark_suite_report_json(
     Ok(())
 }
 
+fn write_noisy_case_metadata_json(
+    path: impl AsRef<Path>,
+    noisy_case: &crate::benchmark::NoisyBenchmarkCase,
+) -> Result<(), OutputError> {
+    let contents = format!(
+        concat!(
+            "{{\n",
+            "  \"case_id\": \"{case_id}\",\n",
+            "  \"family\": \"{family}\",\n",
+            "  \"noise_level\": {noise_level:.12e},\n",
+            "  \"negative_value_count\": {negative_value_count},\n",
+            "  \"negative_value_fraction\": {negative_value_fraction:.12e},\n",
+            "  \"min_observed_intensity\": {min_observed_intensity:.12e},\n",
+            "  \"max_observed_intensity\": {max_observed_intensity:.12e}\n",
+            "}}\n"
+        ),
+        case_id = noisy_case.noise_metadata.case_id,
+        family = noisy_case.noise_metadata.family,
+        noise_level = noisy_case.noise_metadata.noise_level,
+        negative_value_count = noisy_case.noise_metadata.negative_value_count,
+        negative_value_fraction = noisy_case.noise_metadata.negative_value_fraction,
+        min_observed_intensity = noisy_case.noise_metadata.min_observed_intensity,
+        max_observed_intensity = noisy_case.noise_metadata.max_observed_intensity,
+    );
+    fs::write(path, contents)?;
+    Ok(())
+}
+
+fn write_noisy_benchmark_suite_summary_csv(
+    path: impl AsRef<Path>,
+    suite_recovery: &NoisyBenchmarkSuiteRecoveryResult,
+    suite_comparison: &BenchmarkSuiteComparison,
+) -> Result<(), OutputError> {
+    let mut contents = String::from(
+        "case_id,noise_level,negative_value_fraction,pr_rmse,pr_normalized_rmse,pr_correlation,q_rmse,q_normalized_rmse\n",
+    );
+
+    for (noisy_case, comparison) in suite_recovery
+        .suite
+        .cases
+        .iter()
+        .zip(suite_comparison.case_comparisons.iter())
+    {
+        contents.push_str(&format!(
+            "{},{:.12e},{:.12e},{:.12e},{:.12e},{:.12e},{:.12e},{:.12e}\n",
+            noisy_case.truth_case.metadata.candidate_id,
+            noisy_case.noise_metadata.noise_level,
+            noisy_case.noise_metadata.negative_value_fraction,
+            comparison.pr.rmse,
+            comparison.pr.normalized_rmse,
+            comparison.pr.correlation,
+            comparison.iq.rmse,
+            comparison.iq.normalized_rmse,
+        ));
+    }
+
+    fs::write(path, contents)?;
+    Ok(())
+}
+
+fn write_noisy_benchmark_suite_report_json(
+    path: impl AsRef<Path>,
+    suite_recovery: &NoisyBenchmarkSuiteRecoveryResult,
+    suite_comparison: &BenchmarkSuiteComparison,
+) -> Result<(), OutputError> {
+    let negative_fraction_values = suite_recovery
+        .suite
+        .cases
+        .iter()
+        .map(|case| case.noise_metadata.negative_value_fraction)
+        .collect::<Vec<_>>();
+    let q_rmse_values = suite_comparison
+        .case_comparisons
+        .iter()
+        .map(|case| case.iq.rmse)
+        .collect::<Vec<_>>();
+
+    let contents = format!(
+        concat!(
+            "{{\n",
+            "  \"suite_name\": \"{suite_name}\",\n",
+            "  \"variant_count\": {variant_count},\n",
+            "  \"noise_levels\": {noise_levels},\n",
+            "  \"negative_fraction_range\": {negative_fraction_range},\n",
+            "  \"q_rmse_range\": {q_rmse_range}\n",
+            "}}\n"
+        ),
+        suite_name = suite_comparison.suite_name,
+        variant_count = suite_recovery.suite.cases.len(),
+        noise_levels = join_numeric_array(&suite_recovery.suite.summary.noise_levels),
+        negative_fraction_range = tuple_metric_range_json(metric_range(&negative_fraction_values)),
+        q_rmse_range = tuple_metric_range_json(metric_range(&q_rmse_values)),
+    );
+
+    fs::write(path, contents)?;
+    Ok(())
+}
+
 fn write_dmax_scan_csv(path: impl AsRef<Path>, scan: &DmaxScanResult) -> Result<(), OutputError> {
     let mut contents = String::from(
         "dmax,i_zero,radius_of_gyration,chi_square,reduced_chi_square,objective_value\n",
@@ -481,6 +635,14 @@ fn metric_range(values: &[f64]) -> (f64, f64) {
     let min_value = values.iter().copied().fold(f64::INFINITY, f64::min);
     let max_value = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
     (min_value, max_value)
+}
+
+fn format_noise_level(noise_level: f64) -> String {
+    let formatted = format!("{noise_level:.12}");
+    formatted
+        .trim_end_matches('0')
+        .trim_end_matches('.')
+        .to_string()
 }
 
 fn tuple_metric_range_json(range: (f64, f64)) -> String {
@@ -714,8 +876,8 @@ mod tests {
     fn synthetic_suite_path() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("data")
-            .join("synthetic")
-            .join("clamped_spline_seed42")
+            .join("regression")
+            .join("clamped_spline")
     }
 
     #[test]

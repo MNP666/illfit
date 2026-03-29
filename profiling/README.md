@@ -137,6 +137,73 @@ python3 profiling/plot_benchmark_recovery.py \
   --recovery-dir /path/to/benchmark_recovery_output
 ```
 
+If you want to inspect individual noiseless recovery cases in more detail, use:
+
+```bash
+python3 profiling/plot_benchmark_case_fits.py \
+  --recovery-dir /path/to/benchmark_recovery_output
+```
+
+This writes one figure per `case_id`, with:
+
+- `P(r)` truth and recovered curves on the top row
+- truth `I(q)` as scatter plus truth and fitted `I(q)` lines on the bottom row
+
+For noisy benchmark recovery outputs, use:
+
+```bash
+python3 profiling/plot_noisy_benchmark_recovery.py \
+  --recovery-dir /path/to/noisy_benchmark_recovery_output
+```
+
+This plots degradation trends against noise level for the whole suite, with one
+line per case and an overlaid mean trend.
+
+If you want to inspect the actual noisy observed curves and recovered fits, use:
+
+```bash
+python3 profiling/plot_noisy_benchmark_case_fits.py \
+  --recovery-dir /path/to/noisy_benchmark_recovery_output
+```
+
+This writes one figure per `case_id`, with:
+
+- `P(r)` truth and recovered curves on the top row
+- noisy observed `I(q)` as scatter plus truth and fitted `I(q)` lines on the
+  bottom row
+- one column per noise level, so it is easy to see how the same underlying case
+  degrades as noise increases
+
+## Noisy benchmark variants
+
+[`export_noisy_benchmark_variants.py`](/Users/air/Documents/illfit/profiling/export_noisy_benchmark_variants.py)
+creates fixed Gaussian-noise observed `I(q)` variants from the committed
+regression suite in [`data/regression/clamped_spline`](/Users/air/Documents/illfit/data/regression/clamped_spline).
+
+This is the first step of the noisy-negative-intensity milestone: truth remains
+physical and unchanged, while observed `I(q)` can become partially negative as a
+consequence of noise.
+
+It reads its settings from
+[`profiling/noisy_benchmark.toml`](/Users/air/Documents/illfit/profiling/noisy_benchmark.toml)
+and writes exploratory outputs under `data/synthetic/`.
+
+Run it with:
+
+```bash
+python3 profiling/export_noisy_benchmark_variants.py
+```
+
+For a second noise model where the per-point standard deviation scales with the
+signal itself, use:
+
+```bash
+python3 profiling/export_noisy_benchmark_signal_scaled.py
+```
+
+This exporter uses fixed per-point scales such as `y/5`, `y/3`, and `y`, where
+`y` is the noiseless truth `I(q)` at each sampled `q`.
+
 ## Synthetic suite overview plot
 
 [`plot_synthetic_suite.py`](/Users/air/Documents/illfit/profiling/plot_synthetic_suite.py)
