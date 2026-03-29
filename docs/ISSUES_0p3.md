@@ -404,6 +404,14 @@ Status: not started
 Promote a small number of accepted synthetic benchmark cases into standing
 regression assets.
 
+Current note:
+
+- the reviewed clamped-spline benchmark suite has now been promoted to
+  [`data/regression/clamped_spline`](/Users/air/Documents/illfit/data/regression/clamped_spline)
+  as the first committed regression candidate
+- the remaining work is to formally wire that suite into regression tests and
+  document expected behavior and tolerances
+
 Definition of done:
 
 - a compact deterministic benchmark subset is selected

@@ -1,0 +1,24 @@
+{
+  "suite_name": "clamped_spline_seed41",
+  "seed": 40,
+  "candidate_count": 80,
+  "accepted_count": 12,
+  "rejected_count": 68,
+  "config": {
+    "name": "clamped_spline_seed41",
+    "output_dir": "data/regression/clamped_spline",
+    "seed": 40,
+    "candidate_count": 80,
+    "max_accepted": 12,
+    "dmax": 120.0,
+    "n_weights": 4,
+    "r_points": 400,
+    "weight_min": 0.2,
+    "weight_max": 2.0,
+    "q_min": 0.005,
+    "q_max": 0.35,
+    "q_points": 250,
+    "integration_intervals": 1600,
+    "tolerance": 1e-08
+  }
+}

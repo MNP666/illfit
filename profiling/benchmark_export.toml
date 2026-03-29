@@ -1,13 +1,13 @@
 [suite]
 name = "clamped_spline_seed41"
-output_dir = "data/synthetic/clamped_spline_seed41"
-seed = 41
+output_dir = "data/synthetic/clamped_spline_seed40"
+seed = 40
 candidate_count = 80
-max_accepted = 24
+max_accepted = 12
 
 [pr]
 dmax = 120.0
-n_weights = 3
+n_weights = 4
 r_points = 400
 weight_min = 0.2
 weight_max = 2.0

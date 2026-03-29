@@ -1,0 +1,21 @@
+{
+  "candidate_id": "case_0010",
+  "family": "clamped_spline_random",
+  "seed": 40,
+  "weights": [
+    1.314233944932154,
+    1.0973955157787394,
+    0.542146567456472,
+    0.7895250425971794
+  ],
+  "rg": 42.45844468126736,
+  "i_zero": 89.83922569480443,
+  "min_pr": -2.220446049250313e-16,
+  "min_iq": 0.007362132748191719,
+  "pr_at_zero": 0.0,
+  "pr_at_dmax": -2.220446049250313e-16,
+  "derivative_at_zero": -4.85722573273506e-17,
+  "derivative_at_dmax": -6.938893903907228e-18,
+  "accepted": true,
+  "rejection_reason": null
+}

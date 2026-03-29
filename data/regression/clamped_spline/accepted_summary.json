@@ -1,0 +1,254 @@
+[
+  {
+    "candidate_id": "case_0001",
+    "family": "clamped_spline_random",
+    "seed": 40,
+    "weights": [
+      1.442937747306176,
+      1.8603155342237891,
+      1.0562297195377544,
+      0.8091032437750222
+    ],
+    "rg": 41.91594123288076,
+    "i_zero": 124.04606987133147,
+    "min_pr": -1.1102230246251565e-16,
+    "min_iq": 0.017637790268317136,
+    "pr_at_zero": 0.0,
+    "pr_at_dmax": -1.1102230246251565e-16,
+    "derivative_at_zero": -2.4517425127138875e-16,
+    "derivative_at_dmax": 1.3877787807814457e-17,
+    "accepted": true,
+    "rejection_reason": null
+  },
+  {
+    "candidate_id": "case_0002",
+    "family": "clamped_spline_random",
+    "seed": 40,
+    "weights": [
+      1.2833890494864457,
+      1.5151299671674998,
+      0.4020726700379154,
+      0.3955309035648042
+    ],
+    "rg": 37.33577716327272,
+    "i_zero": 86.30694216275467,
+    "min_pr": 0.0,
+    "min_iq": 0.015463041375185123,
+    "pr_at_zero": 0.0,
+    "pr_at_dmax": 0.0,
+    "derivative_at_zero": 4.163336342344337e-17,
+    "derivative_at_dmax": -6.938893903907228e-18,
+    "accepted": true,
+    "rejection_reason": null
+  },
+  {
+    "candidate_id": "case_0010",
+    "family": "clamped_spline_random",
+    "seed": 40,
+    "weights": [
+      1.314233944932154,
+      1.0973955157787394,
+      0.542146567456472,
+      0.7895250425971794
+    ],
+    "rg": 42.45844468126736,
+    "i_zero": 89.83922569480443,
+    "min_pr": -2.220446049250313e-16,
+    "min_iq": 0.007362132748191719,
+    "pr_at_zero": 0.0,
+    "pr_at_dmax": -2.220446049250313e-16,
+    "derivative_at_zero": -4.85722573273506e-17,
+    "derivative_at_dmax": -6.938893903907228e-18,
+    "accepted": true,
+    "rejection_reason": null
+  },
+  {
+    "candidate_id": "case_0019",
+    "family": "clamped_spline_random",
+    "seed": 40,
+    "weights": [
+      1.6766024197699296,
+      1.9041831467452413,
+      0.6754661643664437,
+      0.9698859335168949
+    ],
+    "rg": 41.442937738940046,
+    "i_zero": 125.42730394061542,
+    "min_pr": 0.0,
+    "min_iq": 0.018875272265523973,
+    "pr_at_zero": 0.0,
+    "pr_at_dmax": 2.220446049250313e-16,
+    "derivative_at_zero": 9.483155002006545e-17,
+    "derivative_at_dmax": 0.0,
+    "accepted": true,
+    "rejection_reason": null
+  },
+  {
+    "candidate_id": "case_0025",
+    "family": "clamped_spline_random",
+    "seed": 40,
+    "weights": [
+      1.4227384307809214,
+      1.5131797526430368,
+      1.0165639425515458,
+      0.41694276264063024
+    ],
+    "rg": 39.24345499722504,
+    "i_zero": 104.86619732264967,
+    "min_pr": -2.7755575615628914e-17,
+    "min_iq": 0.022702712473322638,
+    "pr_at_zero": 0.0,
+    "pr_at_dmax": -2.7755575615628914e-17,
+    "derivative_at_zero": 6.591949208711867e-17,
+    "derivative_at_dmax": 0.0,
+    "accepted": true,
+    "rejection_reason": null
+  },
+  {
+    "candidate_id": "case_0026",
+    "family": "clamped_spline_random",
+    "seed": 40,
+    "weights": [
+      1.7944302572984467,
+      0.8831646069159299,
+      1.8347387146544498,
+      1.055706705650225
+    ],
+    "rg": 44.86388476163251,
+    "i_zero": 133.6329668231847,
+    "min_pr": 0.0,
+    "min_iq": 0.025523804835212046,
+    "pr_at_zero": 0.0,
+    "pr_at_dmax": 1.1102230246251565e-16,
+    "derivative_at_zero": -4.568105153405592e-17,
+    "derivative_at_dmax": 0.0,
+    "accepted": true,
+    "rejection_reason": null
+  },
+  {
+    "candidate_id": "case_0027",
+    "family": "clamped_spline_random",
+    "seed": 40,
+    "weights": [
+      1.3923354295057504,
+      1.5592207121994401,
+      1.009947266017941,
+      0.6420067509496733
+    ],
+    "rg": 41.19930952972408,
+    "i_zero": 110.4842438037881,
+    "min_pr": 0.0,
+    "min_iq": 0.02080839456964951,
+    "pr_at_zero": 0.0,
+    "pr_at_dmax": 1.1102230246251565e-16,
+    "derivative_at_zero": 5.782411586589357e-18,
+    "derivative_at_dmax": -6.938893903907228e-18,
+    "accepted": true,
+    "rejection_reason": null
+  },
+  {
+    "candidate_id": "case_0028",
+    "family": "clamped_spline_random",
+    "seed": 40,
+    "weights": [
+      1.6307864066244169,
+      1.751393038532796,
+      0.6544877679467488,
+      0.7310671480108927
+    ],
+    "rg": 39.95242592540697,
+    "i_zero": 114.42562466224177,
+    "min_pr": 0.0,
+    "min_iq": 0.022843045678586867,
+    "pr_at_zero": 0.0,
+    "pr_at_dmax": 0.0,
+    "derivative_at_zero": -1.0870933782787991e-16,
+    "derivative_at_dmax": 0.0,
+    "accepted": true,
+    "rejection_reason": null
+  },
+  {
+    "candidate_id": "case_0030",
+    "family": "clamped_spline_random",
+    "seed": 40,
+    "weights": [
+      1.7937824122944894,
+      0.8045099447739583,
+      1.4716395877541621,
+      1.131799651698481
+    ],
+    "rg": 45.01559684992897,
+    "i_zero": 124.84155831158047,
+    "min_pr": 0.0,
+    "min_iq": 0.00807115683250579,
+    "pr_at_zero": 0.0,
+    "pr_at_dmax": 1.1102230246251565e-16,
+    "derivative_at_zero": -1.295260195396016e-16,
+    "derivative_at_dmax": -6.938893903907228e-18,
+    "accepted": true,
+    "rejection_reason": null
+  },
+  {
+    "candidate_id": "case_0031",
+    "family": "clamped_spline_random",
+    "seed": 40,
+    "weights": [
+      1.5699828648207452,
+      0.5669876604921154,
+      0.63052037130184,
+      0.41808292622153054
+    ],
+    "rg": 38.36645555285934,
+    "i_zero": 76.45377174505303,
+    "min_pr": 0.0,
+    "min_iq": 0.039778083601456835,
+    "pr_at_zero": 0.0,
+    "pr_at_dmax": 0.0,
+    "derivative_at_zero": 1.6653345369377348e-16,
+    "derivative_at_dmax": 0.0,
+    "accepted": true,
+    "rejection_reason": null
+  },
+  {
+    "candidate_id": "case_0032",
+    "family": "clamped_spline_random",
+    "seed": 40,
+    "weights": [
+      1.3638436947853143,
+      1.2476785260206855,
+      1.6768541904252205,
+      0.5062158793882637
+    ],
+    "rg": 42.153848186424696,
+    "i_zero": 115.07021497032747,
+    "min_pr": -1.942890293094024e-16,
+    "min_iq": 0.028422635834727285,
+    "pr_at_zero": 0.0,
+    "pr_at_dmax": -1.942890293094024e-16,
+    "derivative_at_zero": 1.2504465055999484e-16,
+    "derivative_at_dmax": 4.336808689942018e-18,
+    "accepted": true,
+    "rejection_reason": null
+  },
+  {
+    "candidate_id": "case_0033",
+    "family": "clamped_spline_random",
+    "seed": 40,
+    "weights": [
+      1.8968007379411977,
+      0.7057083501184453,
+      1.837884122422267,
+      0.8941803098676138
+    ],
+    "rg": 43.89877255455355,
+    "i_zero": 128.0297644833371,
+    "min_pr": 0.0,
+    "min_iq": 0.047968084992655646,
+    "pr_at_zero": 0.0,
+    "pr_at_dmax": 1.1102230246251565e-16,
+    "derivative_at_zero": 1.5265566588595902e-16,
+    "derivative_at_dmax": 6.938893903907228e-18,
+    "accepted": true,
+    "rejection_reason": null
+  }
+]

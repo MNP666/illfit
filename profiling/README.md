@@ -113,7 +113,7 @@ It currently uses clamped cubic splines with:
 
 The exporter reads its settings from
 [`profiling/benchmark_export.toml`](/Users/air/Documents/illfit/profiling/benchmark_export.toml)
-and writes a fixed suite under `data/synthetic/`.
+and writes an exploratory suite under `data/synthetic/`.
 
 Run it with:
 
@@ -160,3 +160,6 @@ or target one suite explicitly with:
 python3 profiling/plot_synthetic_suite.py \
   --suite-dir data/synthetic/clamped_spline_seed42
 ```
+
+The reviewed committed regression suite currently lives at
+[`data/regression/clamped_spline`](/Users/air/Documents/illfit/data/regression/clamped_spline).

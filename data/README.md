@@ -12,6 +12,7 @@ inputs.
 data/
 ├── README.md
 ├── examples/
+├── regression/
 ├── reference/
 └── synthetic/
 ```
@@ -29,6 +30,13 @@ Good candidates:
 - tiny `q,I,sigma` CSV files
 - intentionally invalid files for parser validation tests
 
+### `regression/`
+
+Committed benchmark assets used for stable scientific regression testing.
+
+These datasets are reviewed, intentionally selected, and expected to remain
+available to Rust tests and profiling scripts without regeneration.
+
 ### `synthetic/`
 
 Generated datasets used for controlled numerical testing.
@@ -43,6 +51,10 @@ layout is:
 - one subdirectory per accepted case
 - `pr_truth.csv`, `iq_truth.csv`, and `metadata.json` per case
 - suite-level summaries documenting accepted and rejected candidates
+
+In this repository, `synthetic/` is meant for exploratory or regenerated
+outputs, while reviewed committed regression suites should live under
+`regression/`.
 
 ### `reference/`
 
