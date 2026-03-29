@@ -460,6 +460,12 @@ mod tests {
             assert!(case.pr.rmse.is_finite());
             assert!(case.pr.normalized_rmse.is_finite());
             assert!(case.pr.correlation.is_finite());
+            assert!(
+                case.pr.correlation >= 0.80,
+                "regression suite case `{}` fell below the minimum accepted P(r) correlation: {}",
+                case.case_id,
+                case.pr.correlation
+            );
             assert!(case.iq.rmse.is_finite());
             assert!(case.iq.normalized_rmse.is_finite());
         }
