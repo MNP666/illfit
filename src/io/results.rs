@@ -4,6 +4,10 @@ use std::fs;
 use std::path::Path;
 
 use crate::analysis::{DmaxScanResult, FitSummary, TruncationScanOutcome, TruncationScanResult};
+use crate::benchmark::{
+    BenchmarkRecoveryComparison, BenchmarkRecoveryResult, BenchmarkSuiteComparison,
+    BenchmarkSuiteRecoveryResult,
+};
 use crate::data::SaxsCurve;
 use crate::solver::FitResult;
 use crate::transform::ForwardTransform;
@@ -82,6 +86,66 @@ pub fn write_truncation_scan_outputs(
     Ok(())
 }
 
+/// Write truth, recovery, and comparison artifacts for one recovered benchmark case.
+pub fn write_benchmark_case_outputs(
+    output_dir: impl AsRef<Path>,
+    recovery: &BenchmarkRecoveryResult,
+    comparison: &BenchmarkRecoveryComparison,
+) -> Result<(), OutputError> {
+    let output_dir = output_dir.as_ref();
+    fs::create_dir_all(output_dir)?;
+
+    write_benchmark_truth_pr_csv(output_dir.join("pr_truth.csv"), recovery)?;
+    write_benchmark_truth_iq_csv(output_dir.join("iq_truth.csv"), recovery)?;
+    write_benchmark_recovered_pr_csv(output_dir.join("pr_recovered.csv"), recovery)?;
+    write_benchmark_recovered_iq_csv(output_dir.join("iq_recovered.csv"), recovery)?;
+    write_benchmark_pr_comparison_csv(output_dir.join("pr_comparison.csv"), comparison)?;
+    write_benchmark_iq_comparison_csv(output_dir.join("iq_comparison.csv"), comparison)?;
+    write_benchmark_case_report_json(
+        output_dir.join("benchmark_report.json"),
+        recovery,
+        comparison,
+    )?;
+
+    Ok(())
+}
+
+/// Write per-case and suite-level artifacts for one recovered benchmark suite.
+pub fn write_benchmark_suite_outputs(
+    output_dir: impl AsRef<Path>,
+    suite_recovery: &BenchmarkSuiteRecoveryResult,
+    suite_comparison: &BenchmarkSuiteComparison,
+) -> Result<(), OutputError> {
+    let output_dir = output_dir.as_ref();
+    fs::create_dir_all(output_dir)?;
+
+    for case_result in &suite_recovery.case_results {
+        let comparison = suite_comparison
+            .case_comparisons
+            .iter()
+            .find(|entry| entry.case_id == case_result.truth_case.metadata.candidate_id)
+            .expect("benchmark comparison must exist for every recovered case");
+
+        write_benchmark_case_outputs(
+            output_dir.join(&case_result.truth_case.metadata.candidate_id),
+            case_result,
+            comparison,
+        )?;
+    }
+
+    write_benchmark_suite_summary_csv(
+        output_dir.join("benchmark_suite_summary.csv"),
+        suite_comparison,
+    )?;
+    write_benchmark_suite_report_json(
+        output_dir.join("benchmark_suite_report.json"),
+        suite_recovery,
+        suite_comparison,
+    )?;
+
+    Ok(())
+}
+
 fn write_pr_csv(path: impl AsRef<Path>, summary: &FitSummary) -> Result<(), OutputError> {
     let mut contents = String::from("r,p_of_r\n");
 
@@ -89,6 +153,96 @@ fn write_pr_csv(path: impl AsRef<Path>, summary: &FitSummary) -> Result<(), Outp
         contents.push_str(&format!("{:.12e},{:.12e}\n", point.r, point.p_of_r));
     }
 
+    fs::write(path, contents)?;
+    Ok(())
+}
+
+fn write_benchmark_truth_pr_csv(
+    path: impl AsRef<Path>,
+    recovery: &BenchmarkRecoveryResult,
+) -> Result<(), OutputError> {
+    let mut contents = String::from("r,p_of_r_truth\n");
+    for point in recovery.truth_case.pr_truth.points() {
+        contents.push_str(&format!("{:.12e},{:.12e}\n", point.r, point.p_of_r));
+    }
+    fs::write(path, contents)?;
+    Ok(())
+}
+
+fn write_benchmark_truth_iq_csv(
+    path: impl AsRef<Path>,
+    recovery: &BenchmarkRecoveryResult,
+) -> Result<(), OutputError> {
+    let mut contents = String::from("q,i_of_q_truth\n");
+    for point in recovery.truth_case.iq_truth.points() {
+        contents.push_str(&format!("{:.12e},{:.12e}\n", point.q, point.intensity));
+    }
+    fs::write(path, contents)?;
+    Ok(())
+}
+
+fn write_benchmark_recovered_pr_csv(
+    path: impl AsRef<Path>,
+    recovery: &BenchmarkRecoveryResult,
+) -> Result<(), OutputError> {
+    let mut contents = String::from("r,p_of_r_recovered\n");
+    for point in &recovery.summary.sampled_pr {
+        contents.push_str(&format!("{:.12e},{:.12e}\n", point.r, point.p_of_r));
+    }
+    fs::write(path, contents)?;
+    Ok(())
+}
+
+fn write_benchmark_recovered_iq_csv(
+    path: impl AsRef<Path>,
+    recovery: &BenchmarkRecoveryResult,
+) -> Result<(), OutputError> {
+    let mut contents = String::from("q,i_of_q_truth,i_of_q_recovered,residual\n");
+    for (truth_point, recovered) in recovery
+        .truth_case
+        .iq_truth
+        .points()
+        .iter()
+        .zip(recovery.fit.predicted_intensities.iter())
+    {
+        contents.push_str(&format!(
+            "{:.12e},{:.12e},{:.12e},{:.12e}\n",
+            truth_point.q,
+            truth_point.intensity,
+            recovered,
+            recovered - truth_point.intensity
+        ));
+    }
+    fs::write(path, contents)?;
+    Ok(())
+}
+
+fn write_benchmark_pr_comparison_csv(
+    path: impl AsRef<Path>,
+    comparison: &BenchmarkRecoveryComparison,
+) -> Result<(), OutputError> {
+    let mut contents = String::from("r,p_of_r_truth,p_of_r_recovered,residual\n");
+    for point in &comparison.pr.residual_curve {
+        contents.push_str(&format!(
+            "{:.12e},{:.12e},{:.12e},{:.12e}\n",
+            point.r, point.true_p_of_r, point.recovered_p_of_r, point.residual
+        ));
+    }
+    fs::write(path, contents)?;
+    Ok(())
+}
+
+fn write_benchmark_iq_comparison_csv(
+    path: impl AsRef<Path>,
+    comparison: &BenchmarkRecoveryComparison,
+) -> Result<(), OutputError> {
+    let mut contents = String::from("q,i_of_q_truth,i_of_q_recovered,residual\n");
+    for point in &comparison.iq.residual_curve {
+        contents.push_str(&format!(
+            "{:.12e},{:.12e},{:.12e},{:.12e}\n",
+            point.q, point.true_intensity, point.recovered_intensity, point.residual
+        ));
+    }
     fs::write(path, contents)?;
     Ok(())
 }
@@ -181,6 +335,119 @@ fn write_report_json(
     Ok(())
 }
 
+fn write_benchmark_case_report_json(
+    path: impl AsRef<Path>,
+    recovery: &BenchmarkRecoveryResult,
+    comparison: &BenchmarkRecoveryComparison,
+) -> Result<(), OutputError> {
+    let weights_json = join_numeric_array(&recovery.truth_case.metadata.weights);
+    let contents = format!(
+        concat!(
+            "{{\n",
+            "  \"case_id\": \"{case_id}\",\n",
+            "  \"family\": \"{family}\",\n",
+            "  \"seed\": {seed},\n",
+            "  \"truth_rg\": {truth_rg:.12e},\n",
+            "  \"recovered_rg\": {recovered_rg:.12e},\n",
+            "  \"truth_i_zero\": {truth_i_zero:.12e},\n",
+            "  \"recovered_i_zero\": {recovered_i_zero:.12e},\n",
+            "  \"pr_rmse\": {pr_rmse:.12e},\n",
+            "  \"pr_normalized_rmse\": {pr_normalized_rmse:.12e},\n",
+            "  \"pr_correlation\": {pr_correlation:.12e},\n",
+            "  \"pr_integrated_absolute_error\": {pr_iae:.12e},\n",
+            "  \"q_rmse\": {q_rmse:.12e},\n",
+            "  \"q_normalized_rmse\": {q_normalized_rmse:.12e},\n",
+            "  \"chi_square\": {chi_square:.12e},\n",
+            "  \"objective_value\": {objective_value:.12e},\n",
+            "  \"weights\": {weights}\n",
+            "}}\n"
+        ),
+        case_id = recovery.truth_case.metadata.candidate_id,
+        family = recovery.truth_case.metadata.family,
+        seed = recovery.truth_case.metadata.seed,
+        truth_rg = recovery.truth_case.metadata.rg,
+        recovered_rg = recovery.summary.radius_of_gyration,
+        truth_i_zero = recovery.truth_case.metadata.i_zero,
+        recovered_i_zero = recovery.summary.i_zero,
+        pr_rmse = comparison.pr.rmse,
+        pr_normalized_rmse = comparison.pr.normalized_rmse,
+        pr_correlation = comparison.pr.correlation,
+        pr_iae = comparison.pr.integrated_absolute_error,
+        q_rmse = comparison.iq.rmse,
+        q_normalized_rmse = comparison.iq.normalized_rmse,
+        chi_square = recovery.summary.chi_square,
+        objective_value = recovery.summary.objective_value,
+        weights = weights_json,
+    );
+
+    fs::write(path, contents)?;
+    Ok(())
+}
+
+fn write_benchmark_suite_summary_csv(
+    path: impl AsRef<Path>,
+    suite_comparison: &BenchmarkSuiteComparison,
+) -> Result<(), OutputError> {
+    let mut contents = String::from(
+        "case_id,pr_rmse,pr_normalized_rmse,pr_correlation,pr_integrated_absolute_error,rg_error,i_zero_error,q_rmse,q_normalized_rmse\n",
+    );
+
+    for case in &suite_comparison.case_comparisons {
+        contents.push_str(&format!(
+            "{},{:.12e},{:.12e},{:.12e},{:.12e},{:.12e},{:.12e},{:.12e},{:.12e}\n",
+            case.case_id,
+            case.pr.rmse,
+            case.pr.normalized_rmse,
+            case.pr.correlation,
+            case.pr.integrated_absolute_error,
+            case.pr.radius_of_gyration_error,
+            case.pr.i_zero_error,
+            case.iq.rmse,
+            case.iq.normalized_rmse
+        ));
+    }
+
+    fs::write(path, contents)?;
+    Ok(())
+}
+
+fn write_benchmark_suite_report_json(
+    path: impl AsRef<Path>,
+    suite_recovery: &BenchmarkSuiteRecoveryResult,
+    suite_comparison: &BenchmarkSuiteComparison,
+) -> Result<(), OutputError> {
+    let pr_rmse_values = suite_comparison
+        .case_comparisons
+        .iter()
+        .map(|case| case.pr.rmse)
+        .collect::<Vec<_>>();
+    let q_rmse_values = suite_comparison
+        .case_comparisons
+        .iter()
+        .map(|case| case.iq.rmse)
+        .collect::<Vec<_>>();
+
+    let contents = format!(
+        concat!(
+            "{{\n",
+            "  \"suite_name\": \"{suite_name}\",\n",
+            "  \"case_count\": {case_count},\n",
+            "  \"accepted_count\": {accepted_count},\n",
+            "  \"pr_rmse_range\": {pr_rmse_range},\n",
+            "  \"q_rmse_range\": {q_rmse_range}\n",
+            "}}\n"
+        ),
+        suite_name = suite_comparison.suite_name,
+        case_count = suite_comparison.case_comparisons.len(),
+        accepted_count = suite_recovery.suite.summary.accepted_count,
+        pr_rmse_range = tuple_metric_range_json(metric_range(&pr_rmse_values)),
+        q_rmse_range = tuple_metric_range_json(metric_range(&q_rmse_values)),
+    );
+
+    fs::write(path, contents)?;
+    Ok(())
+}
+
 fn write_dmax_scan_csv(path: impl AsRef<Path>, scan: &DmaxScanResult) -> Result<(), OutputError> {
     let mut contents = String::from(
         "dmax,i_zero,radius_of_gyration,chi_square,reduced_chi_square,objective_value\n",
@@ -208,6 +475,22 @@ fn write_dmax_scan_csv(path: impl AsRef<Path>, scan: &DmaxScanResult) -> Result<
 
     fs::write(path, contents)?;
     Ok(())
+}
+
+fn metric_range(values: &[f64]) -> (f64, f64) {
+    let min_value = values.iter().copied().fold(f64::INFINITY, f64::min);
+    let max_value = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    (min_value, max_value)
+}
+
+fn tuple_metric_range_json(range: (f64, f64)) -> String {
+    let (min, max) = range;
+    format!(
+        "{{\"min\": {:.12e}, \"max\": {:.12e}, \"span\": {:.12e}}}",
+        min,
+        max,
+        max - min
+    )
 }
 
 fn write_dmax_scan_report_json(
@@ -377,11 +660,18 @@ fn metric_range_json(range: crate::analysis::DmaxScanMetricRange) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{write_dmax_scan_outputs, write_fit_outputs, write_truncation_scan_outputs};
+    use super::{
+        write_benchmark_case_outputs, write_benchmark_suite_outputs, write_dmax_scan_outputs,
+        write_fit_outputs, write_truncation_scan_outputs,
+    };
     use crate::analysis::{
         DmaxScanConfig, TruncationScanConfig, run_dmax_scan, run_truncation_scan, summarize_fit,
     };
     use crate::basis::CubicBSplineBasis;
+    use crate::benchmark::{
+        BenchmarkRecoveryConfig, compare_benchmark_recovery, compare_benchmark_suite,
+        load_benchmark_suite, recover_benchmark_suite, recover_benchmark_truth_case,
+    };
     use crate::data::{SaxsCurve, SaxsPoint};
     use crate::solver::solve_curve;
     use crate::transform::ForwardTransform;
@@ -419,6 +709,13 @@ mod tests {
             .unwrap()
             .as_nanos();
         std::env::temp_dir().join(format!("illfit-output-test-{unique}"))
+    }
+
+    fn synthetic_suite_path() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("data")
+            .join("synthetic")
+            .join("clamped_spline_seed42")
     }
 
     #[test]
@@ -507,6 +804,86 @@ mod tests {
         ));
         assert!(scan_report.contains("\"attempted_entry_count\""));
         assert!(scan_report.contains("\"failed_entry_count\""));
+
+        fs::remove_dir_all(output_dir).unwrap();
+    }
+
+    #[test]
+    fn writes_benchmark_case_artifacts() {
+        let suite = load_benchmark_suite(synthetic_suite_path()).unwrap();
+        let recovery = recover_benchmark_truth_case(
+            &suite.truth_cases[0],
+            BenchmarkRecoveryConfig {
+                dmax: suite.summary.config.dmax,
+                basis_size: suite.summary.config.n_weights + 2,
+                integration_intervals: suite.summary.config.integration_intervals,
+                lambda: 1.0e-2,
+                pr_sample_points: suite.summary.config.r_points,
+                synthetic_sigma: 0.05,
+            },
+        )
+        .unwrap();
+        let comparison = compare_benchmark_recovery(&recovery).unwrap();
+        let output_dir = temp_output_dir();
+
+        write_benchmark_case_outputs(&output_dir, &recovery, &comparison).unwrap();
+
+        let truth_pr = fs::read_to_string(output_dir.join("pr_truth.csv")).unwrap();
+        let truth_iq = fs::read_to_string(output_dir.join("iq_truth.csv")).unwrap();
+        let recovered_pr = fs::read_to_string(output_dir.join("pr_recovered.csv")).unwrap();
+        let comparison_pr = fs::read_to_string(output_dir.join("pr_comparison.csv")).unwrap();
+        let report = fs::read_to_string(output_dir.join("benchmark_report.json")).unwrap();
+
+        assert!(truth_pr.starts_with("r,p_of_r_truth\n"));
+        assert!(truth_iq.starts_with("q,i_of_q_truth\n"));
+        assert!(recovered_pr.starts_with("r,p_of_r_recovered\n"));
+        assert!(comparison_pr.starts_with("r,p_of_r_truth,p_of_r_recovered,residual\n"));
+        assert!(report.contains("\"case_id\""));
+        assert!(report.contains("\"pr_rmse\""));
+        assert!(report.contains("\"q_rmse\""));
+
+        fs::remove_dir_all(output_dir).unwrap();
+    }
+
+    #[test]
+    fn writes_benchmark_suite_artifacts() {
+        let suite = load_benchmark_suite(synthetic_suite_path()).unwrap();
+        let suite_recovery = recover_benchmark_suite(
+            &suite,
+            BenchmarkRecoveryConfig {
+                dmax: suite.summary.config.dmax,
+                basis_size: suite.summary.config.n_weights + 2,
+                integration_intervals: suite.summary.config.integration_intervals,
+                lambda: 1.0e-2,
+                pr_sample_points: suite.summary.config.r_points,
+                synthetic_sigma: 0.05,
+            },
+        )
+        .unwrap();
+        let suite_comparison = compare_benchmark_suite(&suite_recovery).unwrap();
+        let output_dir = temp_output_dir();
+
+        write_benchmark_suite_outputs(&output_dir, &suite_recovery, &suite_comparison).unwrap();
+
+        let suite_summary =
+            fs::read_to_string(output_dir.join("benchmark_suite_summary.csv")).unwrap();
+        let suite_report =
+            fs::read_to_string(output_dir.join("benchmark_suite_report.json")).unwrap();
+        let first_case_dir = output_dir.join(
+            &suite_recovery.case_results[0]
+                .truth_case
+                .metadata
+                .candidate_id,
+        );
+        let first_case_report =
+            fs::read_to_string(first_case_dir.join("benchmark_report.json")).unwrap();
+
+        assert!(suite_summary.starts_with(
+            "case_id,pr_rmse,pr_normalized_rmse,pr_correlation,pr_integrated_absolute_error,rg_error,i_zero_error,q_rmse,q_normalized_rmse\n"
+        ));
+        assert!(suite_report.contains("\"suite_name\""));
+        assert!(suite_report.contains("\"pr_rmse_range\""));
+        assert!(first_case_report.contains("\"case_id\""));
 
         fs::remove_dir_all(output_dir).unwrap();
     }

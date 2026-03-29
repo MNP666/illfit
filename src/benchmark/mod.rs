@@ -5,8 +5,19 @@
 //! way to load those assets so the recovery and comparison pipeline can build on
 //! reviewed benchmark suites rather than ad hoc fixture parsing.
 
+mod comparison;
+mod recovery;
 mod suite;
 
+pub use comparison::{
+    BenchmarkComparisonError, BenchmarkIqComparison, BenchmarkIqResidualPoint,
+    BenchmarkPrComparison, BenchmarkPrResidualPoint, BenchmarkRecoveryComparison,
+    BenchmarkSuiteComparison, compare_benchmark_recovery, compare_benchmark_suite,
+};
+pub use recovery::{
+    BenchmarkRecoveryConfig, BenchmarkRecoveryError, BenchmarkRecoveryResult,
+    BenchmarkSuiteRecoveryResult, recover_benchmark_suite, recover_benchmark_truth_case,
+};
 pub use suite::{
     BenchmarkCaseMetadata, BenchmarkIqCurve, BenchmarkIqPoint, BenchmarkPrCurve, BenchmarkPrPoint,
     BenchmarkSuite, BenchmarkSuiteConfig, BenchmarkSuiteSummary, BenchmarkTruthCase,

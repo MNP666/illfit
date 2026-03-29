@@ -6,8 +6,14 @@ use illfit::analysis::{
     DmaxScanConfig, TruncationScanConfig, run_dmax_scan, run_truncation_scan, summarize_fit,
 };
 use illfit::basis::CubicBSplineBasis;
+use illfit::benchmark::{
+    BenchmarkRecoveryConfig, compare_benchmark_suite, load_benchmark_suite, recover_benchmark_suite,
+};
 use illfit::data::parse_ascii_curve_file;
-use illfit::io::{write_dmax_scan_outputs, write_fit_outputs, write_truncation_scan_outputs};
+use illfit::io::{
+    write_benchmark_suite_outputs, write_dmax_scan_outputs, write_fit_outputs,
+    write_truncation_scan_outputs,
+};
 use illfit::solver::solve_curve;
 use illfit::transform::ForwardTransform;
 
@@ -23,6 +29,8 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), CliError> {
         "fit" => run_fit(rest),
         "scan-dmax" => run_scan_dmax(rest),
         "scan-truncation" => run_scan_truncation(rest),
+        "benchmark-inspect" => run_benchmark_inspect(rest),
+        "benchmark-recover" => run_benchmark_recover(rest),
         "--help" | "-h" | "help" => Err(CliError::Usage(usage_text())),
         other => Err(CliError::Message(format!(
             "unknown command `{other}`\n\n{}",
@@ -148,6 +156,59 @@ fn run_scan_truncation(args: Vec<String>) -> Result<(), CliError> {
     Ok(())
 }
 
+fn run_benchmark_inspect(args: Vec<String>) -> Result<(), CliError> {
+    let parsed = ParsedArgs::parse(args)?;
+
+    if parsed.flag_present("help") {
+        return Err(CliError::Usage(benchmark_inspect_usage()));
+    }
+
+    let suite_dir = parsed.require_path("suite-dir")?;
+    let suite = load_benchmark_suite(&suite_dir)
+        .map_err(|error| CliError::Message(format!("failed to load benchmark suite: {error}")))?;
+
+    println!("suite_name: {}", suite.summary.suite_name);
+    println!("suite_dir: {}", suite.suite_dir.display());
+    println!("accepted_cases: {}", suite.truth_cases.len());
+    println!("candidate_count: {}", suite.summary.candidate_count);
+    println!("rejected_count: {}", suite.summary.rejected_count);
+
+    Ok(())
+}
+
+fn run_benchmark_recover(args: Vec<String>) -> Result<(), CliError> {
+    let parsed = ParsedArgs::parse(args)?;
+
+    if parsed.flag_present("help") {
+        return Err(CliError::Usage(benchmark_recover_usage()));
+    }
+
+    let suite_dir = parsed.require_path("suite-dir")?;
+    let output_dir = parsed.require_path("output-dir")?;
+    let suite = load_benchmark_suite(&suite_dir)
+        .map_err(|error| CliError::Message(format!("failed to load benchmark suite: {error}")))?;
+
+    let config = BenchmarkRecoveryConfig {
+        dmax: parsed.require_f64("dmax")?,
+        basis_size: parsed.require_usize("basis-size")?,
+        integration_intervals: parsed.require_usize("integration-intervals")?,
+        lambda: parsed.require_f64("lambda")?,
+        pr_sample_points: parsed.require_usize("pr-sample-points")?,
+        synthetic_sigma: parsed.require_f64("synthetic-sigma")?,
+    };
+
+    let suite_recovery = recover_benchmark_suite(&suite, config)
+        .map_err(|error| CliError::Message(format!("benchmark recovery failed: {error}")))?;
+    let suite_comparison = compare_benchmark_suite(&suite_recovery)
+        .map_err(|error| CliError::Message(format!("benchmark comparison failed: {error}")))?;
+
+    write_benchmark_suite_outputs(output_dir, &suite_recovery, &suite_comparison).map_err(
+        |error| CliError::Message(format!("failed to write benchmark outputs: {error}")),
+    )?;
+
+    Ok(())
+}
+
 #[derive(Debug, Default)]
 struct ParsedArgs {
     entries: Vec<(String, String)>,
@@ -247,11 +308,13 @@ impl ParsedArgs {
 
 fn usage_text() -> String {
     format!(
-        "{}\n\n{}\n\n{}\n\n{}",
+        "{}\n\n{}\n\n{}\n\n{}\n\n{}\n\n{}",
         "Usage:",
         fit_usage(),
         scan_dmax_usage(),
-        scan_truncation_usage()
+        scan_truncation_usage(),
+        benchmark_inspect_usage(),
+        benchmark_recover_usage()
     )
 }
 
@@ -273,9 +336,19 @@ fn scan_truncation_usage() -> String {
     )
 }
 
+fn benchmark_inspect_usage() -> String {
+    String::from("illfit benchmark-inspect --suite-dir <path>")
+}
+
+fn benchmark_recover_usage() -> String {
+    String::from(
+        "illfit benchmark-recover --suite-dir <path> --dmax <float> --basis-size <usize> --integration-intervals <usize> --lambda <float> --pr-sample-points <usize> --synthetic-sigma <float> --output-dir <path>",
+    )
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{ParsedArgs, fit_usage, run};
+    use super::{ParsedArgs, benchmark_recover_usage, fit_usage, run};
 
     #[test]
     fn parses_flag_value_pairs() {
@@ -312,5 +385,16 @@ mod tests {
         ])
         .unwrap_err();
         assert_eq!(error.to_string(), fit_usage());
+    }
+
+    #[test]
+    fn returns_benchmark_recover_help() {
+        let error = run(vec![
+            "illfit".to_string(),
+            "benchmark-recover".to_string(),
+            "--help".to_string(),
+        ])
+        .unwrap_err();
+        assert_eq!(error.to_string(), benchmark_recover_usage());
     }
 }

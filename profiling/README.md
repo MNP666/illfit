@@ -129,6 +129,14 @@ Each accepted case is written with:
 
 and the suite root also gets accepted/rejected summaries plus `suite_summary.json`.
 
+Once benchmark recovery outputs have been written by the Rust CLI, you can plot
+their suite-level metrics with:
+
+```bash
+python3 profiling/plot_benchmark_recovery.py \
+  --recovery-dir /path/to/benchmark_recovery_output
+```
+
 ## Synthetic suite overview plot
 
 [`plot_synthetic_suite.py`](/Users/air/Documents/illfit/profiling/plot_synthetic_suite.py)

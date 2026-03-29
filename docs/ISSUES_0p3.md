@@ -201,10 +201,21 @@ Definition of done:
 
 ### Issue 5.1: Run the existing fit pipeline against synthetic cases
 
-Status: not started
+Status: in progress
 
 Reuse the current fit machinery to recover `P(r)` from accepted synthetic SAXS
 curves.
+
+Current note:
+
+- the new benchmark recovery layer in
+  [`src/benchmark/recovery.rs`](/Users/air/Documents/illfit/src/benchmark/recovery.rs)
+  can now load synthetic truth `I(q)` data into a validated [`SaxsCurve`](/Users/air/Documents/illfit/src/data/parser.rs)
+  with uniform synthetic sigma and run the existing fit pipeline
+- single-case and full-suite recovery tests now pass against the exported
+  synthetic suite assets
+- remaining work is to make recovery outputs easier to compare, export, and
+  drive from the CLI
 
 Definition of done:
 
@@ -214,10 +225,18 @@ Definition of done:
 
 ### Issue 5.2: Preserve truth and recovery together
 
-Status: not started
+Status: in progress
 
 Ensure each recovery result includes enough information to compare synthetic
 truth and recovered outputs without reconstructing context elsewhere.
+
+Current note:
+
+- [`BenchmarkRecoveryResult`](/Users/air/Documents/illfit/src/benchmark/recovery.rs)
+  now preserves the truth case, observed curve, transform, fit result, and fit
+  summary together
+- the remaining work is to build the comparison metrics and reporting layers on
+  top of that linked structure
 
 Definition of done:
 
@@ -228,9 +247,18 @@ Definition of done:
 
 ### Issue 6.1: Implement `r`-space comparison metrics
 
-Status: not started
+Status: in progress
 
 Add metrics comparing true and recovered `P(r)` curves.
+
+Current note:
+
+- the new comparison layer in
+  [`src/benchmark/comparison.rs`](/Users/air/Documents/illfit/src/benchmark/comparison.rs)
+  now computes `r`-space residual curves, RMSE, normalized RMSE, correlation,
+  integrated absolute error, and `Rg` / `I(0)` errors
+- single-case and full-suite comparison tests now pass against the exported
+  synthetic benchmark suite
 
 Definition of done:
 
@@ -242,10 +270,17 @@ Definition of done:
 
 ### Issue 6.2: Implement `q`-space comparison metrics
 
-Status: not started
+Status: in progress
 
 Add metrics comparing true synthetic `I(q)` and recovered back-calculated
 `I(q)`.
+
+Current note:
+
+- the same comparison layer now computes `q`-space residual curves, RMSE, and
+  normalized RMSE on the synthetic truth `q` grid
+- remaining work is mainly to export and summarize these metrics in a more
+  user-facing reporting layer
 
 Definition of done:
 
@@ -257,9 +292,17 @@ Definition of done:
 
 ### Issue 7.1: Write per-case recovery artifacts
 
-Status: not started
+Status: in progress
 
 Export truth, recovery, and comparison outputs for each benchmark case.
+
+Current note:
+
+- the benchmark output layer in
+  [`src/io/results.rs`](/Users/air/Documents/illfit/src/io/results.rs)
+  now writes per-case truth, recovery, comparison, and report artifacts
+- `write_benchmark_case_outputs(...)` is covered by end-to-end tests against the
+  exported synthetic benchmark suite
 
 Definition of done:
 
@@ -269,9 +312,16 @@ Definition of done:
 
 ### Issue 7.2: Write suite-level benchmark summaries
 
-Status: not started
+Status: in progress
 
 Aggregate case-level metrics into suite-level outputs for profiling and review.
+
+Current note:
+
+- [`write_benchmark_suite_outputs(...)`](/Users/air/Documents/illfit/src/io/results.rs)
+  now writes per-case directories plus suite-level summary CSV/JSON artifacts
+- the remaining work is to connect these outputs to a CLI workflow and richer
+  profiling consumers
 
 Definition of done:
 
@@ -292,7 +342,9 @@ Current note:
 - [`load_benchmark_truth_case(...)`](/Users/air/Documents/illfit/src/benchmark/suite.rs)
   and [`load_benchmark_suite(...)`](/Users/air/Documents/illfit/src/benchmark/suite.rs)
   now provide the first Rust-side loading path
-- CLI exposure of that loading workflow is still pending
+- the CLI now exposes this through
+  [`benchmark-inspect`](/Users/air/Documents/illfit/src/cli.rs)
+- remaining work is mainly polish rather than core loading support
 
 Definition of done:
 
@@ -302,10 +354,19 @@ Definition of done:
 
 ### Issue 8.2: Implement benchmark recovery CLI command
 
-Status: not started
+Status: in progress
 
 Provide a command-line workflow for running recovery and comparison across a
 benchmark suite.
+
+Current note:
+
+- the CLI now exposes
+  [`benchmark-recover`](/Users/air/Documents/illfit/src/cli.rs)
+  for loading a suite, running recovery, computing comparisons, and writing
+  benchmark outputs
+- help text and parsing tests are in place
+- remaining work is mostly usage polish and downstream workflow refinement
 
 Definition of done:
 
@@ -324,8 +385,10 @@ Current note:
 
 - synthetic plotting helpers now exist in
   [`profiling/plot_synthetic_suite.py`](/Users/air/Documents/illfit/profiling/plot_synthetic_suite.py)
-- the remaining work is to wire profiling into Rust-produced benchmark recovery
-  outputs, not just truth-case exports
+- [`profiling/plot_benchmark_recovery.py`](/Users/air/Documents/illfit/profiling/plot_benchmark_recovery.py)
+  now provides a first consumer for Rust-produced benchmark recovery outputs
+- the remaining work is to decide how much richer the profiling summaries
+  should become
 
 Definition of done:
 
