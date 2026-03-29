@@ -14,9 +14,15 @@ Status note:
 
 ### Issue 1.1: Define experiment config types
 
-Status: not started
+Status: complete
 
 Create explicit Rust types for the `0.4` TOML experiment configuration.
+
+Current note:
+
+- [`src/experiment/config.rs`](/Users/air/Documents/illfit/src/experiment/config.rs)
+  now defines typed config structs for suite selection, recovery settings,
+  weighting strategies, lambda grids, selector methods, and output settings
 
 Definition of done:
 
@@ -26,9 +32,20 @@ Definition of done:
 
 ### Issue 1.2: Add TOML parsing and validation
 
-Status: not started
+Status: complete
 
 Parse experiment configuration from TOML and validate it before execution.
+
+Current note:
+
+- TOML parsing and validation now work through
+  [`parse_experiment_config(...)`](/Users/air/Documents/illfit/src/experiment/config.rs)
+  and
+  [`parse_experiment_config_str(...)`](/Users/air/Documents/illfit/src/experiment/config.rs)
+- an example config now exists at
+  [`profiling/regularization_0p4.toml`](/Users/air/Documents/illfit/profiling/regularization_0p4.toml)
+- experiment output bundles now also write a full config snapshot as
+  [`experiment_config.toml`](/Users/air/Documents/illfit/src/io/results.rs)
 
 Definition of done:
 
@@ -40,9 +57,14 @@ Definition of done:
 
 ### Issue 2.1: Define weighting strategy abstraction
 
-Status: not started
+Status: complete
 
 Add an explicit abstraction for weighting or scaling strategies.
+
+Current note:
+
+- [`src/weighting/mod.rs`](/Users/air/Documents/illfit/src/weighting/mod.rs)
+  now defines the first weighting abstraction and parsing path
 
 Definition of done:
 
@@ -52,7 +74,7 @@ Definition of done:
 
 ### Issue 2.2: Implement initial weighting strategies
 
-Status: not started
+Status: complete
 
 Implement the first weighting or scaling strategies.
 
@@ -67,11 +89,28 @@ Definition of done:
 - each strategy is implemented and tested
 - transformed uncertainties are handled consistently where needed
 
+Current note:
+
+- the first shipped set is now implemented:
+  - `none`
+  - `q`
+  - `q2`
+  - generic `q^alpha`
+- transformed observations currently rescale both intensity and sigma
+  consistently through the weighting layer
+
 ### Issue 2.3: Benchmark weighting behavior on noiseless and noisy suites
 
-Status: not started
+Status: complete
 
 Make weighting strategies runnable across both benchmark types.
+
+Current note:
+
+- [`src/experiment/regularization.rs`](/Users/air/Documents/illfit/src/experiment/regularization.rs)
+  now runs weighting strategies across both noiseless benchmark suites and
+  noisy observed benchmark suites
+- coverage exists for both paths in experiment tests
 
 Definition of done:
 
@@ -82,10 +121,16 @@ Definition of done:
 
 ### Issue 3.1: Define lambda grid model
 
-Status: not started
+Status: complete
 
 Add an explicit representation for lambda grids in experiment configs and
 execution.
+
+Current note:
+
+- lambda grids are now represented through
+  [`LambdaGridConfig`](/Users/air/Documents/illfit/src/experiment/config.rs)
+  and parsed from TOML experiment configs
 
 Definition of done:
 
@@ -94,9 +139,23 @@ Definition of done:
 
 ### Issue 3.2: Implement lambda scan execution
 
-Status: not started
+Status: complete
 
 Run fits across a lambda grid for each selected weighting strategy.
+
+Current note:
+
+- the experiment runner in
+  [`src/experiment/regularization.rs`](/Users/air/Documents/illfit/src/experiment/regularization.rs)
+  now executes full weighting-by-lambda scans across benchmark suites
+- per-case and per-strategy summaries are already written through
+  [`src/io/results.rs`](/Users/air/Documents/illfit/src/io/results.rs)
+- selector-facing quantities are now preserved too:
+  - mean data misfit
+  - mean regularization penalty
+  - mean effective degrees of freedom
+  - mean GCV score
+  - L-curve curvature estimates
 
 Definition of done:
 
@@ -108,7 +167,15 @@ Definition of done:
 
 ### Issue 4.1: Export L-curve data
 
-Status: not started
+Status: complete
+
+Current note:
+
+- plot-ready L-curve data now writes through
+  [`src/io/results.rs`](/Users/air/Documents/illfit/src/io/results.rs) as
+  `l_curve.csv`
+- each lambda point preserves mean data misfit, mean regularization penalty,
+  curvature, and a selection flag
 
 Compute and export the data needed for L-curve analysis.
 
@@ -119,7 +186,16 @@ Definition of done:
 
 ### Issue 4.2: Implement L-curve lambda selection
 
-Status: not started
+Status: complete
+
+Current note:
+
+- a first L-curve selector now runs in
+  [`src/experiment/regularization.rs`](/Users/air/Documents/illfit/src/experiment/regularization.rs)
+  by choosing the maximum discrete curvature on the log-misfit/log-penalty
+  curve
+- selected lambdas are exported to `selected_lambdas.csv` and summarized in
+  `experiment_report.json`
 
 Select lambda from the L-curve.
 
@@ -133,7 +209,13 @@ Definition of done:
 
 ### Issue 5.1: Compute GCV scores across lambda
 
-Status: not started
+Status: complete
+
+Current note:
+
+- per-case and mean GCV scores are now computed in
+  [`src/experiment/regularization.rs`](/Users/air/Documents/illfit/src/experiment/regularization.rs)
+- plot-ready GCV data now writes as `gcv.csv`
 
 Add GCV evaluation to lambda scans.
 
@@ -144,7 +226,14 @@ Definition of done:
 
 ### Issue 5.2: Implement GCV lambda selection
 
-Status: not started
+Status: complete
+
+Current note:
+
+- the first GCV selector now chooses the lambda with the minimum mean GCV score
+  for each weighting strategy
+- selected lambdas are exported alongside the L-curve picks in
+  `selected_lambdas.csv`
 
 Choose lambda by minimizing the GCV score.
 
@@ -157,9 +246,21 @@ Definition of done:
 
 ### Issue 6.1: Write experiment-level summary tables
 
-Status: not started
+Status: complete
 
 Write suite-level and strategy-level summaries for one experiment run.
+
+Current note:
+
+- the experiment bundle now writes:
+  - `case_results.csv`
+  - `strategy_summary.csv`
+  - `l_curve.csv`
+  - `gcv.csv`
+  - `selected_lambdas.csv`
+  - `experiment_config.toml`
+  - `experiment_report.json`
+- selected lambda values by method are now included in the CSV and JSON outputs
 
 Definition of done:
 
@@ -169,7 +270,15 @@ Definition of done:
 
 ### Issue 6.2: Write selected-fit outputs
 
-Status: not started
+Status: complete
+
+Current note:
+
+- selector-chosen detailed outputs now write through
+  [`src/io/results.rs`](/Users/air/Documents/illfit/src/io/results.rs) under a
+  dedicated `selected/` subtree
+- each selected weighting/method/lambda combination gets per-case truth,
+  recovery, and comparison artifacts plus a `selected_case_summary.csv`
 
 Preserve detailed fit outputs for selected lambda values.
 
@@ -182,7 +291,15 @@ Definition of done:
 
 ### Issue 7.1: Add TOML-driven experiment CLI command
 
-Status: not started
+Status: complete
+
+Current note:
+
+- the new CLI entry point is now
+  `profile-regularization --config <path>` in
+  [`src/cli.rs`](/Users/air/Documents/illfit/src/cli.rs)
+- it loads the TOML config, runs the experiment, writes the output bundle, and
+  prints the run directory
 
 Provide the main `0.4` experiment entry point.
 
@@ -194,7 +311,14 @@ Definition of done:
 
 ### Issue 7.2: Create fresh output folders under profiling
 
-Status: not started
+Status: complete
+
+Current note:
+
+- experiment runs now create fresh folders under the configured output root
+  using `run_name` plus a high-resolution timestamp
+- the default configured root remains under
+  [`profiling/output/`](/Users/air/Documents/illfit/profiling/output)
 
 Write each experiment run into a new folder under
 [`profiling/output/`](/Users/air/Documents/illfit/profiling/output).
@@ -228,9 +352,17 @@ Definition of done:
 
 ### Issue 8.3: Document the full 0.4 experiment workflow
 
-Status: not started
+Status: in progress
 
 Document how to define a run in TOML and inspect the outputs.
+
+Current note:
+
+- a first example config now exists at
+  [`profiling/regularization_0p4.toml`](/Users/air/Documents/illfit/profiling/regularization_0p4.toml)
+- the CLI command and selector outputs now exist, so the remaining work is to
+  document the end-to-end usage and plotting flow in the profiling docs or
+  README
 
 Definition of done:
 
@@ -241,9 +373,14 @@ Definition of done:
 
 ### Issue 9.1: Add tests for weighting logic
 
-Status: not started
+Status: complete
 
 Protect the mathematical behavior of weighting and scaling code.
+
+Current note:
+
+- unit tests in [`src/weighting/mod.rs`](/Users/air/Documents/illfit/src/weighting/mod.rs)
+  now cover strategy parsing and consistent observation transformation
 
 Definition of done:
 
@@ -251,7 +388,15 @@ Definition of done:
 
 ### Issue 9.2: Add tests for lambda selectors
 
-Status: not started
+Status: in progress
+
+Current note:
+
+- experiment tests now cover:
+  - selector result generation
+  - finite GCV scores
+  - non-trivial weighting changes in summary metrics
+- a more focused selector-only unit test would still be useful later
 
 Protect L-curve and GCV calculations against accidental regressions.
 
@@ -261,9 +406,15 @@ Definition of done:
 
 ### Issue 9.3: Add end-to-end experiment test
 
-Status: not started
+Status: complete
 
 Run one small TOML-driven experiment in tests.
+
+Current note:
+
+- experiment parsing, execution, and artifact writing are now covered in tests
+  under [`src/experiment/regularization.rs`](/Users/air/Documents/illfit/src/experiment/regularization.rs)
+  and [`src/io/results.rs`](/Users/air/Documents/illfit/src/io/results.rs)
 
 Definition of done:
 

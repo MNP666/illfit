@@ -6,3 +6,6 @@
 mod regularized_least_squares;
 
 pub use regularized_least_squares::{FitResult, SolverError, solve_curve};
+pub use regularized_least_squares::{
+    LeastSquaresObservation, LinearSolveResult, solve_design_matrix,
+};

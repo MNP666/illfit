@@ -9,7 +9,14 @@ use crate::transform::{ForwardTransform, TransformError};
 pub enum SolverError {
     Transform(TransformError),
     Penalty(PenaltyError),
-    InvalidLambda { lambda: f64 },
+    InvalidLambda {
+        lambda: f64,
+    },
+    ObservationCountMismatch {
+        design_rows: usize,
+        observation_count: usize,
+    },
+    EmptyDesignMatrix,
     LinearSolveFailed,
 }
 
@@ -22,6 +29,14 @@ impl fmt::Display for SolverError {
                 f,
                 "regularization strength lambda must be finite and non-negative, but was {lambda}"
             ),
+            Self::ObservationCountMismatch {
+                design_rows,
+                observation_count,
+            } => write!(
+                f,
+                "design matrix row count must match observation count, but found {design_rows} rows and {observation_count} observations"
+            ),
+            Self::EmptyDesignMatrix => write!(f, "design matrix must not be empty"),
             Self::LinearSolveFailed => write!(
                 f,
                 "failed to solve the regularized normal equations; the system may be singular"
@@ -35,7 +50,10 @@ impl Error for SolverError {
         match self {
             Self::Transform(error) => Some(error),
             Self::Penalty(error) => Some(error),
-            Self::InvalidLambda { .. } | Self::LinearSolveFailed => None,
+            Self::InvalidLambda { .. }
+            | Self::ObservationCountMismatch { .. }
+            | Self::EmptyDesignMatrix
+            | Self::LinearSolveFailed => None,
         }
     }
 }
@@ -61,6 +79,26 @@ pub struct FitResult {
     pub weighted_residual_sum_squares: f64,
     pub regularization_penalty: f64,
     pub objective_value: f64,
+    pub effective_degrees_of_freedom: f64,
+    pub lambda: f64,
+}
+
+/// One weighted least-squares observation used by the general solver path.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct LeastSquaresObservation {
+    pub intensity: f64,
+    pub sigma: f64,
+}
+
+/// Result of solving for coefficients against an arbitrary weighted design
+/// matrix.
+#[derive(Debug, Clone)]
+pub struct LinearSolveResult {
+    pub coefficients: Vec<f64>,
+    pub weighted_residual_sum_squares: f64,
+    pub regularization_penalty: f64,
+    pub objective_value: f64,
+    pub effective_degrees_of_freedom: f64,
     pub lambda: f64,
 }
 
@@ -80,23 +118,80 @@ pub fn solve_curve(
     transform: &ForwardTransform,
     lambda: f64,
 ) -> Result<FitResult, SolverError> {
+    let design_matrix = transform.design_matrix_for_curve(curve)?;
+    let observations = curve
+        .points()
+        .iter()
+        .map(|point| LeastSquaresObservation {
+            intensity: point.intensity,
+            sigma: point.sigma,
+        })
+        .collect::<Vec<_>>();
+    let solution = solve_design_matrix(&design_matrix, &observations, lambda)?;
+    let coefficients = solution.coefficients;
+    let weighted_residual_sum_squares = solution.weighted_residual_sum_squares;
+    let regularization_penalty = solution.regularization_penalty;
+    let objective_value = solution.objective_value;
+
+    let predicted_intensities = transform.predict_for_curve(curve, &coefficients)?;
+    let residuals = curve
+        .points()
+        .iter()
+        .zip(predicted_intensities.iter())
+        .map(|(point, predicted)| predicted - point.intensity)
+        .collect::<Vec<_>>();
+
+    Ok(FitResult {
+        coefficients,
+        predicted_intensities,
+        residuals,
+        weighted_residual_sum_squares,
+        regularization_penalty,
+        objective_value,
+        effective_degrees_of_freedom: solution.effective_degrees_of_freedom,
+        lambda,
+    })
+}
+
+/// Solve a weighted regularized least-squares problem for an arbitrary design
+/// matrix and observation vector.
+pub fn solve_design_matrix(
+    design_matrix: &[Vec<f64>],
+    observations: &[LeastSquaresObservation],
+    lambda: f64,
+) -> Result<LinearSolveResult, SolverError> {
     if !lambda.is_finite() || lambda < 0.0 {
         return Err(SolverError::InvalidLambda { lambda });
     }
+    if design_matrix.is_empty() {
+        return Err(SolverError::EmptyDesignMatrix);
+    }
+    if design_matrix.len() != observations.len() {
+        return Err(SolverError::ObservationCountMismatch {
+            design_rows: design_matrix.len(),
+            observation_count: observations.len(),
+        });
+    }
+    let coefficient_count = design_matrix[0].len();
+    if design_matrix
+        .iter()
+        .any(|row| row.len() != coefficient_count)
+    {
+        return Err(SolverError::LinearSolveFailed);
+    }
 
-    let design_matrix = transform.design_matrix_for_curve(curve)?;
-    let penalty = SecondDifferencePenalty::new(transform.basis().basis_size())?;
+    let penalty = SecondDifferencePenalty::new(coefficient_count)?;
     let normal_penalty = penalty.normal_matrix();
 
-    let mut system_matrix =
-        vec![vec![0.0; transform.basis().basis_size()]; transform.basis().basis_size()];
-    let mut right_hand_side = vec![0.0; transform.basis().basis_size()];
+    let mut system_matrix = vec![vec![0.0; coefficient_count]; coefficient_count];
+    let mut right_hand_side = vec![0.0; coefficient_count];
 
-    for (row, point) in design_matrix.iter().zip(curve.points()) {
-        let weight = 1.0 / point.sigma;
+    for (row, observation) in design_matrix.iter().zip(observations.iter()) {
+        let weight = 1.0 / observation.sigma;
 
         for column_index in 0..row.len() {
-            right_hand_side[column_index] += row[column_index] * point.intensity * weight * weight;
+            right_hand_side[column_index] +=
+                row[column_index] * observation.intensity * weight * weight;
 
             for other_index in 0..row.len() {
                 system_matrix[column_index][other_index] +=
@@ -115,36 +210,82 @@ pub fn solve_curve(
     let coefficients = solve_symmetric_positive_definite(&system_matrix, &right_hand_side)
         .ok_or(SolverError::LinearSolveFailed)?;
 
-    let predicted_intensities = transform.predict_for_curve(curve, &coefficients)?;
-    let residuals = curve
-        .points()
+    let weighted_residual_sum_squares = design_matrix
         .iter()
-        .zip(predicted_intensities.iter())
-        .map(|(point, predicted)| predicted - point.intensity)
-        .collect::<Vec<_>>();
-
-    let weighted_residual_sum_squares = curve
-        .points()
-        .iter()
-        .zip(residuals.iter())
-        .map(|(point, residual)| {
-            let weighted = residual / point.sigma;
+        .zip(observations.iter())
+        .map(|(row, observation)| {
+            let residual = dot(row, &coefficients) - observation.intensity;
+            let weighted = residual / observation.sigma;
             weighted * weighted
         })
         .sum::<f64>();
 
     let regularization_penalty = penalty.penalty_value(&coefficients);
     let objective_value = weighted_residual_sum_squares + lambda * regularization_penalty;
+    let effective_degrees_of_freedom =
+        compute_effective_degrees_of_freedom(&system_matrix, design_matrix, observations)
+            .ok_or(SolverError::LinearSolveFailed)?;
 
-    Ok(FitResult {
+    Ok(LinearSolveResult {
         coefficients,
-        predicted_intensities,
-        residuals,
         weighted_residual_sum_squares,
         regularization_penalty,
         objective_value,
+        effective_degrees_of_freedom,
         lambda,
     })
+}
+
+fn compute_effective_degrees_of_freedom(
+    system_matrix: &[Vec<f64>],
+    design_matrix: &[Vec<f64>],
+    observations: &[LeastSquaresObservation],
+) -> Option<f64> {
+    let inverse = invert_symmetric_positive_definite(system_matrix)?;
+
+    let mut trace = 0.0;
+    for (row, observation) in design_matrix.iter().zip(observations.iter()) {
+        let whitened_row = row
+            .iter()
+            .map(|value| value / observation.sigma)
+            .collect::<Vec<_>>();
+        let projected = mat_vec_mul(&inverse, &whitened_row)?;
+        trace += dot(&whitened_row, &projected);
+    }
+
+    Some(trace)
+}
+
+fn invert_symmetric_positive_definite(matrix: &[Vec<f64>]) -> Option<Vec<Vec<f64>>> {
+    let n = matrix.len();
+    if n == 0 {
+        return None;
+    }
+
+    let mut inverse = vec![vec![0.0; n]; n];
+    for column in 0..n {
+        let mut rhs = vec![0.0; n];
+        rhs[column] = 1.0;
+        let solution = solve_symmetric_positive_definite(matrix, &rhs)?;
+        for row in 0..n {
+            inverse[row][column] = solution[row];
+        }
+    }
+
+    Some(inverse)
+}
+
+fn mat_vec_mul(matrix: &[Vec<f64>], vector: &[f64]) -> Option<Vec<f64>> {
+    if matrix.iter().any(|row| row.len() != vector.len()) {
+        return None;
+    }
+
+    Some(
+        matrix
+            .iter()
+            .map(|row| row.iter().zip(vector.iter()).map(|(a, b)| a * b).sum())
+            .collect(),
+    )
 }
 
 fn solve_symmetric_positive_definite(matrix: &[Vec<f64>], rhs: &[f64]) -> Option<Vec<f64>> {
@@ -223,6 +364,10 @@ fn backward_substitute_transpose(lower: &[Vec<f64>], rhs: &[f64]) -> Option<Vec<
     }
 
     Some(solution)
+}
+
+fn dot(left: &[f64], right: &[f64]) -> f64 {
+    left.iter().zip(right.iter()).map(|(a, b)| a * b).sum()
 }
 
 #[cfg(test)]

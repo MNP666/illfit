@@ -1,6 +1,7 @@
 use std::error::Error;
 use std::fmt;
 use std::path::PathBuf;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use illfit::analysis::{
     DmaxScanConfig, TruncationScanConfig, run_dmax_scan, run_truncation_scan, summarize_fit,
@@ -12,9 +13,13 @@ use illfit::benchmark::{
     recover_noisy_benchmark_suite,
 };
 use illfit::data::parse_ascii_curve_file;
+use illfit::experiment::{
+    parse_experiment_config, recover_selected_experiment_cases, run_regularization_experiment,
+};
 use illfit::io::{
     write_benchmark_suite_outputs, write_dmax_scan_outputs, write_fit_outputs,
-    write_noisy_benchmark_suite_outputs, write_truncation_scan_outputs,
+    write_noisy_benchmark_suite_outputs, write_regularization_experiment_outputs,
+    write_selected_regularization_outputs, write_truncation_scan_outputs,
 };
 use illfit::solver::solve_curve;
 use illfit::transform::ForwardTransform;
@@ -34,6 +39,7 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), CliError> {
         "benchmark-inspect" => run_benchmark_inspect(rest),
         "benchmark-recover" => run_benchmark_recover(rest),
         "benchmark-recover-noisy" => run_benchmark_recover_noisy(rest),
+        "profile-regularization" => run_profile_regularization(rest),
         "--help" | "-h" | "help" => Err(CliError::Usage(usage_text())),
         other => Err(CliError::Message(format!(
             "unknown command `{other}`\n\n{}",
@@ -247,6 +253,37 @@ fn run_benchmark_recover_noisy(args: Vec<String>) -> Result<(), CliError> {
     Ok(())
 }
 
+fn run_profile_regularization(args: Vec<String>) -> Result<(), CliError> {
+    let parsed = ParsedArgs::parse(args)?;
+
+    if parsed.flag_present("help") {
+        return Err(CliError::Usage(profile_regularization_usage()));
+    }
+
+    let config_path = parsed.require_path("config")?;
+    let config = parse_experiment_config(&config_path)
+        .map_err(|error| CliError::Message(format!("failed to load experiment config: {error}")))?;
+    let output_dir = fresh_experiment_output_dir(&config.output.root_dir, &config.output.run_name)
+        .map_err(|error| {
+            CliError::Message(format!("failed to create output directory: {error}"))
+        })?;
+
+    let experiment = run_regularization_experiment(&config)
+        .map_err(|error| CliError::Message(format!("regularization experiment failed: {error}")))?;
+    write_regularization_experiment_outputs(&output_dir, &experiment).map_err(|error| {
+        CliError::Message(format!("failed to write experiment outputs: {error}"))
+    })?;
+
+    let selections = recover_selected_experiment_cases(&config, &experiment.selector_results)
+        .map_err(|error| CliError::Message(format!("failed to recover selected fits: {error}")))?;
+    write_selected_regularization_outputs(output_dir.join("selected"), &selections).map_err(
+        |error| CliError::Message(format!("failed to write selected fit outputs: {error}")),
+    )?;
+
+    println!("{}", output_dir.display());
+    Ok(())
+}
+
 #[derive(Debug, Default)]
 struct ParsedArgs {
     entries: Vec<(String, String)>,
@@ -346,7 +383,7 @@ impl ParsedArgs {
 
 fn usage_text() -> String {
     format!(
-        "{}\n\n{}\n\n{}\n\n{}\n\n{}\n\n{}\n\n{}",
+        "{}\n\n{}\n\n{}\n\n{}\n\n{}\n\n{}\n\n{}\n\n{}",
         "Usage:",
         fit_usage(),
         scan_dmax_usage(),
@@ -354,6 +391,7 @@ fn usage_text() -> String {
         benchmark_inspect_usage(),
         benchmark_recover_usage(),
         benchmark_recover_noisy_usage(),
+        profile_regularization_usage(),
     )
 }
 
@@ -391,10 +429,28 @@ fn benchmark_recover_noisy_usage() -> String {
     )
 }
 
+fn profile_regularization_usage() -> String {
+    String::from("illfit profile-regularization --config <path>")
+}
+
+fn fresh_experiment_output_dir(
+    root_dir: &std::path::Path,
+    run_name: &str,
+) -> Result<PathBuf, std::io::Error> {
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let output_dir = root_dir.join(format!("{run_name}_{timestamp}"));
+    std::fs::create_dir_all(&output_dir)?;
+    Ok(output_dir)
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        ParsedArgs, benchmark_recover_noisy_usage, benchmark_recover_usage, fit_usage, run,
+        ParsedArgs, benchmark_recover_noisy_usage, benchmark_recover_usage, fit_usage,
+        profile_regularization_usage, run,
     };
 
     #[test]
@@ -454,5 +510,16 @@ mod tests {
         ])
         .unwrap_err();
         assert_eq!(error.to_string(), benchmark_recover_noisy_usage());
+    }
+
+    #[test]
+    fn returns_profile_regularization_help() {
+        let error = run(vec![
+            "illfit".to_string(),
+            "profile-regularization".to_string(),
+            "--help".to_string(),
+        ])
+        .unwrap_err();
+        assert_eq!(error.to_string(), profile_regularization_usage());
     }
 }

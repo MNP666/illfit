@@ -415,6 +415,7 @@ mod tests {
                 weighted_residual_sum_squares: 0.0,
                 regularization_penalty: 0.0,
                 objective_value: 0.0,
+                effective_degrees_of_freedom: 0.0,
                 lambda: 0.0,
             },
             summary: FitSummary {

@@ -1,0 +1,23 @@
+[suite]
+kind = "benchmark"
+path = "data/regression/clamped_spline"
+
+[recovery]
+dmax = 120.0
+basis_size = 7
+integration_intervals = 1600
+pr_sample_points = 400
+synthetic_sigma = 0.05
+
+[weighting]
+strategies = ["none", "q", "q2"]
+
+[lambda]
+values = [1e-4, 3e-4, 1e-3, 3e-3, 1e-2, 3e-2]
+
+[selectors]
+methods = ["l_curve", "gcv"]
+
+[output]
+run_name = "baseline_regularization_scan"
+root_dir = "profiling/output"

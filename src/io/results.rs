@@ -9,6 +9,7 @@ use crate::benchmark::{
     BenchmarkSuiteRecoveryResult, NoisyBenchmarkSuiteRecoveryResult,
 };
 use crate::data::SaxsCurve;
+use crate::experiment::{ExperimentRunResult, SelectedExperimentRecovery};
 use crate::solver::FitResult;
 use crate::transform::ForwardTransform;
 
@@ -183,6 +184,69 @@ pub fn write_noisy_benchmark_suite_outputs(
         suite_recovery,
         suite_comparison,
     )?;
+
+    Ok(())
+}
+
+/// Write the first regularization-experiment artifact bundle.
+pub fn write_regularization_experiment_outputs(
+    output_dir: impl AsRef<Path>,
+    experiment: &ExperimentRunResult,
+) -> Result<(), OutputError> {
+    let output_dir = output_dir.as_ref();
+    fs::create_dir_all(output_dir)?;
+
+    write_experiment_config_snapshot(output_dir.join("experiment_config.toml"), experiment)?;
+    write_experiment_case_results_csv(output_dir.join("case_results.csv"), experiment)?;
+    write_experiment_strategy_summary_csv(output_dir.join("strategy_summary.csv"), experiment)?;
+    write_experiment_l_curve_csv(output_dir.join("l_curve.csv"), experiment)?;
+    write_experiment_gcv_csv(output_dir.join("gcv.csv"), experiment)?;
+    write_experiment_selected_lambda_csv(output_dir.join("selected_lambdas.csv"), experiment)?;
+    write_experiment_report_json(output_dir.join("experiment_report.json"), experiment)?;
+
+    Ok(())
+}
+
+/// Write detailed per-case outputs for selector-chosen weighting/lambda pairs.
+pub fn write_selected_regularization_outputs(
+    output_dir: impl AsRef<Path>,
+    selections: &[SelectedExperimentRecovery],
+) -> Result<(), OutputError> {
+    let output_dir = output_dir.as_ref();
+    fs::create_dir_all(output_dir)?;
+
+    for selection in selections {
+        let selection_dir = output_dir
+            .join(selector_method_name(selection.method))
+            .join(selection.weighting_strategy.as_config_string())
+            .join(format!("lambda_{:.6e}", selection.selected_lambda));
+        fs::create_dir_all(&selection_dir)?;
+
+        let mut summary =
+            String::from("case_id,family,negative_value_fraction,pr_rmse,pr_correlation,q_rmse\n");
+        for case in &selection.case_results {
+            write_benchmark_case_outputs(
+                selection_dir.join(&case.case_id),
+                &case.recovery,
+                &case.comparison,
+            )?;
+            let negative_value_fraction = case
+                .negative_value_fraction
+                .map(|value| format!("{value:.12e}"))
+                .unwrap_or_default();
+            summary.push_str(&format!(
+                "{},{},{},{:.12e},{:.12e},{:.12e}\n",
+                case.case_id,
+                case.family,
+                negative_value_fraction,
+                case.comparison.pr.rmse,
+                case.comparison.pr.correlation,
+                case.comparison.iq.rmse
+            ));
+        }
+
+        fs::write(selection_dir.join("selected_case_summary.csv"), summary)?;
+    }
 
     Ok(())
 }
@@ -631,6 +695,235 @@ fn write_dmax_scan_csv(path: impl AsRef<Path>, scan: &DmaxScanResult) -> Result<
     Ok(())
 }
 
+fn write_experiment_case_results_csv(
+    path: impl AsRef<Path>,
+    experiment: &ExperimentRunResult,
+) -> Result<(), OutputError> {
+    let mut contents = String::from(
+        "weighting_strategy,lambda,case_id,family,pr_rmse,pr_correlation,q_rmse,data_misfit,regularization_penalty,effective_degrees_of_freedom,gcv_score,negative_value_fraction\n",
+    );
+
+    for result in &experiment.case_results {
+        let negative_value_fraction = result
+            .negative_value_fraction
+            .map(|value| format!("{value:.12e}"))
+            .unwrap_or_default();
+        contents.push_str(&format!(
+            "{},{:.12e},{},{},{:.12e},{:.12e},{:.12e},{:.12e},{:.12e},{:.12e},{:.12e},{}\n",
+            result.weighting_strategy.as_config_string(),
+            result.lambda,
+            result.case_id,
+            result.family,
+            result.comparison.pr.rmse,
+            result.comparison.pr.correlation,
+            result.comparison.iq.rmse,
+            result.data_misfit,
+            result.regularization_penalty,
+            result.effective_degrees_of_freedom,
+            result.gcv_score,
+            negative_value_fraction
+        ));
+    }
+
+    fs::write(path, contents)?;
+    Ok(())
+}
+
+fn write_experiment_strategy_summary_csv(
+    path: impl AsRef<Path>,
+    experiment: &ExperimentRunResult,
+) -> Result<(), OutputError> {
+    let mut contents = String::from(
+        "weighting_strategy,lambda,case_count,mean_pr_rmse,mean_pr_correlation,mean_q_rmse,mean_data_misfit,mean_regularization_penalty,mean_effective_degrees_of_freedom,mean_gcv_score,l_curve_curvature,mean_negative_value_fraction\n",
+    );
+
+    for summary in &experiment.summaries {
+        let mean_negative_value_fraction = summary
+            .mean_negative_value_fraction
+            .map(|value| format!("{value:.12e}"))
+            .unwrap_or_default();
+        let l_curve_curvature = summary
+            .l_curve_curvature
+            .map(|value| format!("{value:.12e}"))
+            .unwrap_or_default();
+        contents.push_str(&format!(
+            "{},{:.12e},{},{:.12e},{:.12e},{:.12e},{:.12e},{:.12e},{:.12e},{:.12e},{},{}\n",
+            summary.weighting_strategy.as_config_string(),
+            summary.lambda,
+            summary.case_count,
+            summary.mean_pr_rmse,
+            summary.mean_pr_correlation,
+            summary.mean_q_rmse,
+            summary.mean_data_misfit,
+            summary.mean_regularization_penalty,
+            summary.mean_effective_degrees_of_freedom,
+            summary.mean_gcv_score,
+            l_curve_curvature,
+            mean_negative_value_fraction
+        ));
+    }
+
+    fs::write(path, contents)?;
+    Ok(())
+}
+
+fn write_experiment_l_curve_csv(
+    path: impl AsRef<Path>,
+    experiment: &ExperimentRunResult,
+) -> Result<(), OutputError> {
+    let mut contents = String::from(
+        "weighting_strategy,lambda,mean_data_misfit,mean_regularization_penalty,l_curve_curvature,is_l_curve_selected\n",
+    );
+
+    for summary in &experiment.summaries {
+        let is_selected = experiment.selector_results.iter().any(|result| {
+            result.method == crate::experiment::LambdaSelectorMethod::LCurve
+                && result.weighting_strategy == summary.weighting_strategy
+                && result.selected_lambda == summary.lambda
+        });
+        let curvature = summary
+            .l_curve_curvature
+            .map(|value| format!("{value:.12e}"))
+            .unwrap_or_default();
+        contents.push_str(&format!(
+            "{},{:.12e},{:.12e},{:.12e},{},{}\n",
+            summary.weighting_strategy.as_config_string(),
+            summary.lambda,
+            summary.mean_data_misfit,
+            summary.mean_regularization_penalty,
+            curvature,
+            is_selected
+        ));
+    }
+
+    fs::write(path, contents)?;
+    Ok(())
+}
+
+fn write_experiment_gcv_csv(
+    path: impl AsRef<Path>,
+    experiment: &ExperimentRunResult,
+) -> Result<(), OutputError> {
+    let mut contents = String::from(
+        "weighting_strategy,lambda,mean_gcv_score,mean_effective_degrees_of_freedom,is_gcv_selected\n",
+    );
+
+    for summary in &experiment.summaries {
+        let is_selected = experiment.selector_results.iter().any(|result| {
+            result.method == crate::experiment::LambdaSelectorMethod::Gcv
+                && result.weighting_strategy == summary.weighting_strategy
+                && result.selected_lambda == summary.lambda
+        });
+        contents.push_str(&format!(
+            "{},{:.12e},{:.12e},{:.12e},{}\n",
+            summary.weighting_strategy.as_config_string(),
+            summary.lambda,
+            summary.mean_gcv_score,
+            summary.mean_effective_degrees_of_freedom,
+            is_selected
+        ));
+    }
+
+    fs::write(path, contents)?;
+    Ok(())
+}
+
+fn write_experiment_selected_lambda_csv(
+    path: impl AsRef<Path>,
+    experiment: &ExperimentRunResult,
+) -> Result<(), OutputError> {
+    let mut contents = String::from(
+        "weighting_strategy,method,selected_lambda,selected_mean_data_misfit,selected_mean_regularization_penalty,selected_mean_gcv_score,l_curve_curvature\n",
+    );
+
+    for result in &experiment.selector_results {
+        let l_curve_curvature = result
+            .l_curve_curvature
+            .map(|value| format!("{value:.12e}"))
+            .unwrap_or_default();
+        let method = match result.method {
+            crate::experiment::LambdaSelectorMethod::LCurve => "l_curve",
+            crate::experiment::LambdaSelectorMethod::Gcv => "gcv",
+        };
+        contents.push_str(&format!(
+            "{},{},{:.12e},{:.12e},{:.12e},{:.12e},{}\n",
+            result.weighting_strategy.as_config_string(),
+            method,
+            result.selected_lambda,
+            result.selected_mean_data_misfit,
+            result.selected_mean_regularization_penalty,
+            result.selected_mean_gcv_score,
+            l_curve_curvature
+        ));
+    }
+
+    fs::write(path, contents)?;
+    Ok(())
+}
+
+fn write_experiment_config_snapshot(
+    path: impl AsRef<Path>,
+    experiment: &ExperimentRunResult,
+) -> Result<(), OutputError> {
+    fs::write(path, experiment.config.to_toml_string())?;
+    Ok(())
+}
+
+fn write_experiment_report_json(
+    path: impl AsRef<Path>,
+    experiment: &ExperimentRunResult,
+) -> Result<(), OutputError> {
+    let weighting_json = experiment
+        .config
+        .weighting_strategies
+        .iter()
+        .map(|strategy| format!("\"{}\"", strategy.as_config_string()))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let selector_json = experiment
+        .config
+        .selectors
+        .iter()
+        .map(|selector| match selector {
+            crate::experiment::LambdaSelectorMethod::LCurve => "\"l_curve\"".to_string(),
+            crate::experiment::LambdaSelectorMethod::Gcv => "\"gcv\"".to_string(),
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    let lambda_json = join_numeric_array(&experiment.config.lambda_grid.values);
+
+    let contents = format!(
+        concat!(
+            "{{\n",
+            "  \"run_name\": \"{run_name}\",\n",
+            "  \"suite_kind\": \"{suite_kind}\",\n",
+            "  \"suite_path\": \"{suite_path}\",\n",
+            "  \"weighting_strategies\": [{weighting_json}],\n",
+            "  \"lambda_values\": {lambda_json},\n",
+            "  \"selectors\": [{selector_json}],\n",
+            "  \"case_result_count\": {case_result_count},\n",
+            "  \"strategy_summary_count\": {strategy_summary_count},\n",
+            "  \"selector_result_count\": {selector_result_count}\n",
+            "}}\n"
+        ),
+        run_name = experiment.config.output.run_name,
+        suite_kind = match experiment.config.suite.kind {
+            crate::experiment::ExperimentSuiteKind::Benchmark => "benchmark",
+            crate::experiment::ExperimentSuiteKind::NoisyBenchmark => "noisy_benchmark",
+        },
+        suite_path = experiment.config.suite.path.display(),
+        weighting_json = weighting_json,
+        lambda_json = lambda_json,
+        selector_json = selector_json,
+        case_result_count = experiment.case_results.len(),
+        strategy_summary_count = experiment.summaries.len(),
+        selector_result_count = experiment.selector_results.len(),
+    );
+
+    fs::write(path, contents)?;
+    Ok(())
+}
+
 fn metric_range(values: &[f64]) -> (f64, f64) {
     let min_value = values.iter().copied().fold(f64::INFINITY, f64::min);
     let max_value = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
@@ -643,6 +936,13 @@ fn format_noise_level(noise_level: f64) -> String {
         .trim_end_matches('0')
         .trim_end_matches('.')
         .to_string()
+}
+
+fn selector_method_name(method: crate::experiment::LambdaSelectorMethod) -> &'static str {
+    match method {
+        crate::experiment::LambdaSelectorMethod::LCurve => "l_curve",
+        crate::experiment::LambdaSelectorMethod::Gcv => "gcv",
+    }
 }
 
 fn tuple_metric_range_json(range: (f64, f64)) -> String {
@@ -824,7 +1124,8 @@ fn metric_range_json(range: crate::analysis::DmaxScanMetricRange) -> String {
 mod tests {
     use super::{
         write_benchmark_case_outputs, write_benchmark_suite_outputs, write_dmax_scan_outputs,
-        write_fit_outputs, write_truncation_scan_outputs,
+        write_fit_outputs, write_regularization_experiment_outputs,
+        write_selected_regularization_outputs, write_truncation_scan_outputs,
     };
     use crate::analysis::{
         DmaxScanConfig, TruncationScanConfig, run_dmax_scan, run_truncation_scan, summarize_fit,
@@ -835,6 +1136,10 @@ mod tests {
         load_benchmark_suite, recover_benchmark_suite, recover_benchmark_truth_case,
     };
     use crate::data::{SaxsCurve, SaxsPoint};
+    use crate::experiment::{
+        parse_experiment_config_str, recover_selected_experiment_cases,
+        run_regularization_experiment,
+    };
     use crate::solver::solve_curve;
     use crate::transform::ForwardTransform;
     use std::fs;
@@ -1046,6 +1351,128 @@ mod tests {
         assert!(suite_report.contains("\"suite_name\""));
         assert!(suite_report.contains("\"pr_rmse_range\""));
         assert!(first_case_report.contains("\"case_id\""));
+
+        fs::remove_dir_all(output_dir).unwrap();
+    }
+
+    #[test]
+    fn writes_regularization_experiment_artifacts() {
+        let config = parse_experiment_config_str(&format!(
+            r#"
+[suite]
+kind = "benchmark"
+path = "{}"
+
+[recovery]
+dmax = 120.0
+basis_size = 7
+integration_intervals = 400
+pr_sample_points = 80
+synthetic_sigma = 0.05
+
+[weighting]
+strategies = ["none", "q"]
+
+[lambda]
+values = [1e-3]
+
+[selectors]
+methods = ["l_curve", "gcv"]
+
+[output]
+run_name = "test_experiment"
+root_dir = "profiling/output"
+"#,
+            synthetic_suite_path().display()
+        ))
+        .unwrap();
+        let experiment = run_regularization_experiment(&config).unwrap();
+        let output_dir = temp_output_dir();
+
+        write_regularization_experiment_outputs(&output_dir, &experiment).unwrap();
+
+        let config_snapshot =
+            fs::read_to_string(output_dir.join("experiment_config.toml")).unwrap();
+        let case_results = fs::read_to_string(output_dir.join("case_results.csv")).unwrap();
+        let summary = fs::read_to_string(output_dir.join("strategy_summary.csv")).unwrap();
+        let l_curve = fs::read_to_string(output_dir.join("l_curve.csv")).unwrap();
+        let gcv = fs::read_to_string(output_dir.join("gcv.csv")).unwrap();
+        let selected = fs::read_to_string(output_dir.join("selected_lambdas.csv")).unwrap();
+        let report = fs::read_to_string(output_dir.join("experiment_report.json")).unwrap();
+
+        assert!(config_snapshot.contains("[suite]"));
+        assert!(case_results.starts_with(
+            "weighting_strategy,lambda,case_id,family,pr_rmse,pr_correlation,q_rmse,data_misfit,regularization_penalty,effective_degrees_of_freedom,gcv_score,negative_value_fraction\n"
+        ));
+        assert!(summary.starts_with(
+            "weighting_strategy,lambda,case_count,mean_pr_rmse,mean_pr_correlation,mean_q_rmse,mean_data_misfit,mean_regularization_penalty,mean_effective_degrees_of_freedom,mean_gcv_score,l_curve_curvature,mean_negative_value_fraction\n"
+        ));
+        assert!(l_curve.starts_with(
+            "weighting_strategy,lambda,mean_data_misfit,mean_regularization_penalty,l_curve_curvature,is_l_curve_selected\n"
+        ));
+        assert!(gcv.starts_with(
+            "weighting_strategy,lambda,mean_gcv_score,mean_effective_degrees_of_freedom,is_gcv_selected\n"
+        ));
+        assert!(selected.starts_with(
+            "weighting_strategy,method,selected_lambda,selected_mean_data_misfit,selected_mean_regularization_penalty,selected_mean_gcv_score,l_curve_curvature\n"
+        ));
+        assert!(report.contains("\"run_name\": \"test_experiment\""));
+
+        fs::remove_dir_all(output_dir).unwrap();
+    }
+
+    #[test]
+    fn writes_selected_regularization_outputs() {
+        let config = parse_experiment_config_str(&format!(
+            r#"
+[suite]
+kind = "benchmark"
+path = "{}"
+
+[recovery]
+dmax = 120.0
+basis_size = 7
+integration_intervals = 400
+pr_sample_points = 80
+synthetic_sigma = 0.05
+
+[weighting]
+strategies = ["none"]
+
+[lambda]
+values = [1e-3, 1e-2, 1e-1]
+
+[selectors]
+methods = ["l_curve", "gcv"]
+
+[output]
+run_name = "test_experiment"
+root_dir = "profiling/output"
+"#,
+            synthetic_suite_path().display()
+        ))
+        .unwrap();
+        let experiment = run_regularization_experiment(&config).unwrap();
+        let selections =
+            recover_selected_experiment_cases(&config, &experiment.selector_results).unwrap();
+        let output_dir = temp_output_dir();
+
+        write_selected_regularization_outputs(&output_dir, &selections).unwrap();
+
+        let l_curve_dir = output_dir.join("l_curve").join("none");
+        let entries = fs::read_dir(&l_curve_dir)
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        assert!(!entries.is_empty());
+        let first_lambda_dir = entries[0].path();
+        let case_summary =
+            fs::read_to_string(first_lambda_dir.join("selected_case_summary.csv")).unwrap();
+        assert!(
+            case_summary.starts_with(
+                "case_id,family,negative_value_fraction,pr_rmse,pr_correlation,q_rmse\n"
+            )
+        );
 
         fs::remove_dir_all(output_dir).unwrap();
     }

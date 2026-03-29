@@ -174,6 +174,39 @@ This writes one figure per `case_id`, with:
 - one column per noise level, so it is easy to see how the same underlying case
   degrades as noise increases
 
+## Regularization experiment plots
+
+For `0.4` regularization runs produced by
+`cargo run --release -- profile-regularization --config <path>`, use:
+
+```bash
+python3 profiling/plot_regularization_experiment.py \
+  --run-dir /path/to/regularization_run
+```
+
+This writes an overview figure with:
+
+- mean `P(r)` correlation across lambda
+- mean `I(q)` RMSE across lambda
+- effective degrees of freedom across lambda
+- L-curve
+- GCV score across lambda
+- mean data misfit across lambda
+
+To inspect the selector-chosen fits in more detail, use:
+
+```bash
+python3 profiling/plot_regularization_selected_cases.py \
+  --run-dir /path/to/regularization_run \
+  --top-n 4
+```
+
+This writes one contact sheet per selected method/strategy/lambda combination,
+showing the worst recovered cases with:
+
+- truth and recovered `P(r)` on the top row
+- observed, truth, and fitted `I(q)` on the bottom row
+
 ## Noisy benchmark variants
 
 [`export_noisy_benchmark_variants.py`](/Users/air/Documents/illfit/profiling/export_noisy_benchmark_variants.py)
