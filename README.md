@@ -1,5 +1,12 @@
-# illfit
+# ARCHIVED MARCH 30TH 2026
+I did not plan the implementations well enough as vertical slices and hence build (and asked ChatGPT) to build a lot of features that are a nightmare to test and develop properly. Moreover, I moved too fast with the spline setup, and they underpin the whole pipeline.
 
+I think it is possible to remedy it by going back to the start and re-introducing the splines as clamped and then working forward, but it is simply easier to start all over with a new planning stage. That will give me the experience in planning these things out with vertical slices and the appropriate design of interfaces.
+
+The code is still left here, in case I want to re-examing it in connection with the new version: unFourier
+
+# illfit
+    
 `illfit` is a Rust implementation of indirect Fourier transformation (iFT) for
 small-angle X-ray scattering (SAXS) data.
 
